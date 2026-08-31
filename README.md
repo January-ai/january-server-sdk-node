@@ -307,3 +307,15 @@ The npm package `@january-ai/server` includes compiled ESM and CommonJS JavaScri
 - [Typed SDK operations](src/generated/api.ts) and [models](src/generated/models.ts) describe the SDK's methods and types; editor autocomplete also exposes these definitions.
 - For help, contact [support@january.ai](mailto:support@january.ai). Include the SDK/runtime version, API status/code, and sanitized request ID when reporting failures; never include API keys, tokens, or private payloads.
 - [Contributing](CONTRIBUTING.md) covers local tests, contract generation, and compatibility details.
+
+## Menu items by restaurant ID
+
+Use the ID of a `restaurant` search result to load its menu, independently of search text and location.
+
+```ts
+const page = await client.restaurants.getMenuItems({ restaurantId: restaurant.id, limit: 100, offset: 0 });
+```
+
+The response contains `items` and `totalCount` (`total_count` on the wire). Request subsequent pages by advancing `offset` by the number of items received, until it reaches the total or a page is empty. An unknown restaurant returns 404; an existing restaurant with no menu returns an empty list.
+
+This operation requires the backend restaurant-ID menu endpoint; deployment is pending for this unreleased change.

@@ -579,6 +579,13 @@ export type PredictGlucoseRequest = {
   "consumedFoods"?: Array<ConsumedHistoricalFood>;
 } & { signal?: AbortSignal };
 
+export type GetRestaurantMenuItemsRequest = {
+  "endUserId"?: string;
+  "restaurantId": string;
+  "limit"?: number;
+  "offset"?: number;
+} & { signal?: AbortSignal };
+
 export type MintClientTokenRequest = {
   /** Your stable ID for the end user this token acts as. The token is bound to it; requests made with the token act only on this user. */
   "endUserId": string;

@@ -59,7 +59,7 @@ test('redirects are rejected without forwarding credentials or following Locatio
   assert.equal(calls, 1);
 });
 
-test('all 18 official fixtures serialize through a real local HTTP service', async t => {
+test('all 19 official fixtures serialize through a real local HTTP service', async t => {
   for (const f of fixtures.operations) await t.test(f.operationId, async t => {
     let seen;
     let calls = 0;

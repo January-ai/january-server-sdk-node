@@ -36,6 +36,10 @@ export class RestaurantsResource<Scoped extends boolean = false> {
   searchMenuItems(request: UserRequest<Models.SearchRestaurantMenuItemsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.SearchRestaurantMenuItemsResponse>> {
     return this.runtime.request(operations["searchRestaurantMenuItems"]!, { ...request, ...this.context }, options);
   }
+  /** Contract operation: getRestaurantMenuItems. */
+  getMenuItems(request: UserRequest<Models.GetRestaurantMenuItemsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.SearchRestaurantMenuItemsResponse>> {
+    return this.runtime.request(operations["getRestaurantMenuItems"]!, { ...request, ...this.context }, options);
+  }
 }
 export class FoodAnalysisResource<Scoped extends boolean = false> {
   constructor(private readonly runtime: HttpRuntime, private readonly context: Readonly<Partial<Models.PartnerUserContext>> = {}) { Object.freeze(this); }

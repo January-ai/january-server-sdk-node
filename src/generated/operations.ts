@@ -1035,6 +1035,80 @@ export const operations: Record<string, Operation> = {
       }
     }
   },
+  "getRestaurantMenuItems": {
+    "operationId": "getRestaurantMenuItems",
+    "method": "GET",
+    "path": "/v1.2/restaurants/{restaurant_id}/menu-items",
+    "resource": "restaurants",
+    "publicMethod": "getMenuItems",
+    "audience": "shared",
+    "parameterNames": {
+      "x-end-user-id": "endUserId",
+      "x-end-user-timezone": "endUserTimezone"
+    },
+    "retryNever": false,
+    "retryAmbiguous": true,
+    "parameters": [
+      {
+        "name": "x-end-user-id",
+        "publicName": "endUserId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "simple",
+        "explode": false
+      },
+      {
+        "name": "restaurant_id",
+        "publicName": "restaurantId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9_-]{1,256}$"
+        },
+        "style": "simple",
+        "explode": false
+      },
+      {
+        "name": "limit",
+        "publicName": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "offset",
+        "publicName": "offset",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "style": "form",
+        "explode": true
+      }
+    ],
+    "responses": {
+      "200": {
+        "schema": {
+          "ref": "SearchRestaurantMenuItemsResponse"
+        },
+        "headers": []
+      }
+    }
+  },
   "mintClientToken": {
     "operationId": "mintClientToken",
     "method": "POST",
