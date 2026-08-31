@@ -16,5 +16,5 @@ async function copy(directory, target) {
   }
 }
 await copy('src', destination);
-const compiler = spawnSync('node_modules/.bin/tsc', ['-p', 'tsconfig.cjs.json'], { stdio: 'inherit' });
+const compiler = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.cjs.json'], { stdio: 'inherit' });
 if (compiler.status !== 0) process.exit(compiler.status ?? 1);

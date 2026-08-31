@@ -103,7 +103,7 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
   const started = performance.now();
   const endUserId = `sdk-e2e-node-${randomUUID()}`;
   const secrets = [config.apiKey, endUserId, config.query, config.restaurantQuery];
-  const client = new January({ secretKey: config.apiKey, timeoutMs: config.timeoutMs, fetch: fetchImpl });
+  const client = new January({ secretKey: config.apiKey, timeoutMs: config.timeoutMs, fetch: fetchImpl, maxRetries:0 });
   const user = client.forUser({ endUserId, endUserTimezone: 'UTC' });
   const rows = new Map();
   const cleanup = [];

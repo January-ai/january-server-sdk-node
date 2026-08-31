@@ -1,7 +1,9 @@
 import { schemas } from './generated/schemas.js';
-import { JanuaryApiError, JanuaryConfigurationError, JanuaryTransportError, JanuaryValidationError } from './errors.js';
+import { JanuaryApiError, JanuaryConfigurationError, JanuaryTransportError, JanuaryValidationError, JanuaryResponseError, apiErrorType } from './errors.js';
+import { retryCount, retryDelay, waitForRetry } from './retry.js';
 
 export interface Schema {
+  description?: string;
   ref?: string; publicName?: string; type?: string; format?: string; nullable?: boolean;
   enum?: unknown[]; required?: string[]; minimum?: number; maximum?: number;
   minLength?: number; maxLength?: number; minItems?: number; maxItems?: number; pattern?: string;
@@ -14,6 +16,7 @@ export interface Parameter {
   name: string; publicName: string; in: string; required: boolean; schema: Schema; style: string; explode: boolean;
 }
 export interface Operation {
+  retryNever?: boolean; retryAmbiguous?: boolean;
   operationId: string; method: string; path: string; resource: string | null;
   publicMethod: string; audience: string; parameters: Parameter[];
   parameterNames?: Record<string, string>; bodyPropertyNames?: Record<string, string>;
@@ -29,11 +32,13 @@ export interface ResponseMetadata {
 export type WithMetadata<T> = T & { readonly $metadata: ResponseMetadata };
 export interface RequestOptions {
   readonly signal?: AbortSignal;
-  /** Overall deadline, including response reading. No automatic retries. */
+  /** Overall deadline, including response reading and bounded retries. */
   readonly timeoutMs?: number;
+  readonly maxRetries?: number;
   readonly onResponse?: (metadata: ResponseMetadata) => void;
 }
 export interface RuntimeOptions {
+  readonly maxRetries?: number;
   readonly secretKey?: string;
   readonly baseUrl?: string;
   readonly timeoutMs?: number;
@@ -105,7 +110,7 @@ export function decode(value: unknown, raw: Schema): unknown {
   const schema = resolveSchema(raw);
   if (schema.allOf?.length === 1 && !schema.properties) return decode(value, schema.allOf[0]!);
   if (schema.allOf) return schema.allOf.reduce((out, s) => Object.assign(out, decode(value, s)), {});
-  const bad = () => { throw new JanuaryApiError('January returned a malformed response', 502, 'invalid_response'); };
+  const bad = () => { throw new JanuaryResponseError('January returned a malformed response', 502, 'invalid_response'); };
   if (schema.type === 'array' && !Array.isArray(value)) bad();
   if ((schema.type === 'object' || schema.properties) && !isObject(value)) bad();
   if (schema.type === 'string' && typeof value !== 'string') bad();
@@ -145,7 +150,8 @@ function redactor(sensitive: string[]) {
 }
 function retryAfter(value: string | null): number | undefined {
   if (!value) return undefined;
-  if (/^\d+(\.\d+)?$/.test(value)) return Number(value) * 1000;
+  if (/^[+-]?\d+(\.\d+)?$/.test(value)) { const ms = Number(value) * 1000; return Number.isFinite(ms) ? Math.max(0,ms) : undefined; }
+  if (/^(?:nan|[+-]?inf(?:inity)?)$/i.test(value)) return undefined;
   const time = Date.parse(value); return Number.isFinite(time) ? Math.max(0, time - Date.now()) : undefined;
 }
 export class HttpRuntime {
@@ -153,6 +159,8 @@ export class HttpRuntime {
   #base: string;
   #fetch: typeof globalThis.fetch;
   #timeout: number;
+  #explicitTimeout: boolean;
+  #maxRetries: number;
   constructor(options: RuntimeOptions = {}) {
     this.#secret = options.secretKey?.trim();
     if (options.secretKey !== undefined && (!this.#secret || this.#secret.startsWith('ct-') || /\s/.test(this.#secret))) throw new JanuaryConfigurationError('secretKey must be a server credential, not a client token');
@@ -164,9 +172,31 @@ export class HttpRuntime {
     this.#fetch = options.fetch ?? globalThis.fetch?.bind(globalThis);
     if (!this.#fetch) throw new JanuaryConfigurationError('A Fetch implementation is required');
     this.#timeout = timeoutValue(options.timeoutMs ?? 30_000);
+    this.#explicitTimeout = options.timeoutMs !== undefined;
+    this.#maxRetries = retryCount(options.maxRetries ?? 2);
     Object.freeze(this);
   }
   async request<T>(operation: Operation, request: Record<string, unknown>, options: RequestOptions = {}): Promise<T> {
+    const timeout = timeoutValue(options.timeoutMs ?? (!this.#explicitTimeout && ['scanFoodPhoto','searchFoodsByNaturalLanguage','correctPhotoScan'].includes(operation.operationId) ? 120_000 : this.#timeout));
+    const deadline = Date.now()+timeout;
+    const maxRetries = retryCount(options.maxRetries ?? this.#maxRetries);
+    let waited = 0;
+    for (let attempt=0;;attempt++) {
+      try { return await this.#requestOnce<T>(operation,request,{...options,timeoutMs:Math.max(1,deadline-Date.now())}); }
+      catch (error) {
+        if (attempt >= maxRetries) throw error;
+        const delay = retryDelay(operation,error,attempt,waited);
+        if (!delay) throw error;
+        if (delay.ms >= deadline-Date.now()) {
+          if (error instanceof JanuaryApiError) error.retryNote = 'Retry waiting would exceed the request deadline; no wait was made';
+          throw error;
+        }
+        await waitForRetry(delay.ms,[options.signal,request.signal as AbortSignal | undefined]);
+        if (delay.serverWait) waited += delay.ms;
+      }
+    }
+  }
+  async #requestOnce<T>(operation: Operation, request: Record<string, unknown>, options: RequestOptions): Promise<T> {
     if (!this.#secret) throw new JanuaryConfigurationError('Configure secretKey for server API calls');
     const timeout = timeoutValue(options.timeoutMs ?? this.#timeout);
     const redactCredential = redactor([this.#secret]);
@@ -219,17 +249,18 @@ export class HttpRuntime {
         options.onResponse?.(metadata);
         const text = response.status === 204 ? '' : await response.text();
         let payload: unknown;
-        try { payload = text ? JSON.parse(text) : undefined; } catch { if (response.ok) throw new JanuaryApiError('January returned invalid JSON', response.status, 'invalid_response', { metadata }); }
+        try { payload = text ? JSON.parse(text) : undefined; } catch { if (response.ok) throw new JanuaryResponseError('January returned invalid JSON', response.status, 'invalid_response', { metadata }); }
         if (!response.ok) {
           const error = isObject(payload) ? payload : {};
-          throw new JanuaryApiError(typeof error.message === 'string' ? redact(error.message) : `January request failed (${response.status})`, response.status, typeof error.code === 'string' ? redactCredential(error.code) : undefined, { metadata, docsUrl: typeof error.docs_url === 'string' ? redactCredential(error.docs_url) : undefined });
+          const code = typeof error.code === 'string' ? redactCredential(error.code) : undefined;
+          throw new (apiErrorType(response.status,code))(typeof error.message === 'string' ? redact(error.message) : `January request failed (${response.status})`, response.status, code, { metadata, docsUrl: typeof error.docs_url === 'string' ? redactCredential(error.docs_url) : undefined, body:redact(text) });
         }
         const spec = operation.responses[String(response.status)] ?? Object.values(operation.responses)[0]!;
-        if (spec.schema && (!isObject(payload) && !Array.isArray(payload))) throw new JanuaryApiError('January returned an invalid response', response.status, 'invalid_response', { metadata });
+        if (spec.schema && (!isObject(payload) && !Array.isArray(payload))) throw new JanuaryResponseError('January returned an invalid response', response.status, 'invalid_response', { metadata });
         let result: Record<string, unknown>;
         try { result = (spec.schema ? decode(payload, spec.schema) : {}) as Record<string, unknown>; }
         catch (error) {
-          if (error instanceof JanuaryApiError) throw new JanuaryApiError(error.message, response.status, error.code, { metadata });
+          if (error instanceof JanuaryResponseError) throw new JanuaryResponseError(error.message, response.status, error.code, { metadata });
           throw error;
         }
         for (const header of spec.headers) {
@@ -242,9 +273,11 @@ export class HttpRuntime {
       };
       return await Promise.race([run(), aborted]);
     } catch (e) {
-      if (e instanceof JanuaryApiError || e instanceof JanuaryTransportError || e instanceof JanuaryValidationError) throw e;
+      if (e instanceof JanuaryApiError || e instanceof JanuaryTransportError || e instanceof JanuaryValidationError || e instanceof JanuaryResponseError) throw e;
       const cause = e instanceof Error ? new Error(redact(e.message)) : undefined;
-      throw new JanuaryTransportError('January request failed before a valid response was received', 'connection', cause);
+      const rawCause = e instanceof Error && isObject(e.cause) ? e.cause : e;
+      const code = isObject(rawCause) && typeof rawCause.code === 'string' ? redactCredential(rawCause.code) : undefined;
+      throw new JanuaryTransportError('January request failed before a valid response was received', 'connection', cause, code);
     } finally {
       clearTimeout(timer);
       for (const signal of supplied) signal.removeEventListener('abort', cancel);

@@ -22,7 +22,7 @@ async function mock(t, handler) {
   const server = http.createServer(handler);
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  return new January({ secretKey: 'sk-local-only', baseUrl: `http://127.0.0.1:${server.address().port}` });
+  return new January({ secretKey: 'sk-local-only', baseUrl: `http://127.0.0.1:${server.address().port}`, maxRetries:0 });
 }
 function reply(response, fixture) {
   response.writeHead(fixture.status, { 'content-type': 'application/json', ...fixture.headers });

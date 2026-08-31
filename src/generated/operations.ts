@@ -12,6 +12,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -81,6 +83,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -150,6 +154,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -178,6 +184,7 @@ export const operations: Record<string, Operation> = {
       "type": "object",
       "properties": {
         "diet_restrictions": {
+          "description": "Allergens/ingredients to avoid. Omit it (or send []) if none apply.",
           "type": "array",
           "minItems": 1,
           "items": {
@@ -186,6 +193,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "dietRestrictions"
         },
         "diet_preferences": {
+          "description": "Dietary patterns to match. Omit it (or send []) if none apply.",
           "type": "array",
           "minItems": 1,
           "items": {
@@ -215,6 +223,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -259,6 +269,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -303,6 +315,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -400,6 +414,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -497,6 +513,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -517,6 +535,7 @@ export const operations: Record<string, Operation> = {
       ],
       "properties": {
         "image": {
+          "description": "The meal photo, as an http(s) URL or a base64 data URI (data:image/jpeg;base64,…). Any image of the meal works — a camera photo, a screenshot, or a hosted picture. Formats: JPG, PNG, WEBP, and non-animated GIF. A URL must be publicly fetchable server-side: hosts that block hotlinking or require a login cannot be read. Prefer the URL when the image is already hosted — base64 inflates the payload by ~33%, and request bodies over 5 MB are rejected, so keep raw images under ~3.5 MB when encoding.",
           "type": "string",
           "publicName": "image"
         }
@@ -545,6 +564,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -565,6 +586,7 @@ export const operations: Record<string, Operation> = {
       ],
       "properties": {
         "text": {
+          "description": "Natural-language description of what was eaten; parsed into detected foods with quantities.",
           "type": "string",
           "maxLength": 512,
           "publicName": "query"
@@ -591,6 +613,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -612,10 +636,12 @@ export const operations: Record<string, Operation> = {
       ],
       "properties": {
         "meal_name": {
+          "description": "The meal name from the scan, when it returned one (photo scans do; text scans don't). Defaults to 'Meal'.",
           "type": "string",
           "publicName": "mealName"
         },
         "detections": {
+          "description": "The detections array from a photo or text food scan, exactly as returned. Omitted zero-value nutrient keys are filled in automatically; each detection needs at least one serving.",
           "type": "array",
           "items": {
             "ref": "FoodDetection"
@@ -623,6 +649,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "detections"
         },
         "user_input": {
+          "description": "Plain-English description of what to correct.",
           "type": "string",
           "publicName": "userInput"
         }
@@ -648,6 +675,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": false,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -687,6 +716,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "foods"
         },
         "timestamp_utc": {
+          "description": "When the meal was eaten — any ISO-8601 offset; stored and returned in UTC. Omitted = now.",
           "type": "string",
           "format": "date-time",
           "publicName": "timestampUtc"
@@ -718,6 +748,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -786,6 +818,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -833,6 +867,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "foods"
         },
         "timestamp_utc": {
+          "description": "UTC consumption time, ending in Z.",
           "type": "string",
           "publicName": "timestampUtc"
         },
@@ -863,6 +898,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -918,6 +955,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",
@@ -955,6 +994,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "userProfile"
         },
         "foods": {
+          "description": "The meal to predict the glucose response for.",
           "type": "array",
           "maxItems": 100,
           "items": {
@@ -963,11 +1003,13 @@ export const operations: Record<string, Operation> = {
           "publicName": "foods"
         },
         "start_time": {
+          "description": "When the meal is (or will be) eaten. Must carry a timezone designator.",
           "type": "string",
           "format": "date-time",
           "publicName": "startTime"
         },
         "cgm_data": {
+          "description": "Optional CGM history for personalization; requires consumed_foods.",
           "type": "array",
           "items": {
             "ref": "CgmReading"
@@ -975,6 +1017,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "cgmData"
         },
         "consumed_foods": {
+          "description": "The meals eaten during the CGM history; requires cgm_data.",
           "type": "array",
           "items": {
             "ref": "ConsumedHistoricalFood"
@@ -1003,6 +1046,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": false,
     "parameters": [],
     "body": {
       "type": "object",
@@ -1011,11 +1056,13 @@ export const operations: Record<string, Operation> = {
       ],
       "properties": {
         "end_user_id": {
+          "description": "Your stable ID for the end user this token acts as. The token is bound to it; requests made with the token act only on this user.",
           "type": "string",
           "maxLength": 64,
           "publicName": "endUserId"
         },
         "scopes": {
+          "description": "What the token may do. Omit to grant the full client-grantable set (foods:read, food_scans:write, food_logs:read, food_logs:write, glucose:read, restaurants:read). Grant only what the screen needs.",
           "type": "array",
           "items": {
             "type": "string",
@@ -1031,6 +1078,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "scopes"
         },
         "ttl_seconds": {
+          "description": "How long the token stays valid, in seconds. Between 300 and 7200; defaults to 1800.",
           "type": "number",
           "minimum": 300,
           "maximum": 7200,
@@ -1058,6 +1106,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": true,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "end_user_id",
@@ -1098,6 +1148,8 @@ export const operations: Record<string, Operation> = {
       "x-end-user-id": "endUserId",
       "x-end-user-timezone": "endUserTimezone"
     },
+    "retryNever": false,
+    "retryAmbiguous": true,
     "parameters": [
       {
         "name": "x-end-user-id",

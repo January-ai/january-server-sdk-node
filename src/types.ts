@@ -25,6 +25,8 @@ export interface ClientTokenIssuer {
 }
 
 export interface JanuaryOptions {
+  /** Two bounded retries by default. Set zero for single-attempt calls. */
+  readonly maxRetries?: number;
   /** Overrides HTTP issuance, primarily for deterministic tests. */
   readonly clientTokenIssuer?: ClientTokenIssuer;
 

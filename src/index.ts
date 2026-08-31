@@ -9,6 +9,7 @@ export type { RequestOptions, ResponseMetadata, WithMetadata } from './runtime.j
 export type JanuaryUserClient<Scoped extends boolean = true> = SharedClient<Scoped>;
 export { createDemoTokenIssuer } from "./demo.js";
 export { JanuaryApiError, JanuaryApiError as JanuaryAPIError, JanuaryConfigurationError, JanuaryValidationError, JanuaryTransportError } from "./errors.js";
+export { JanuaryError, JanuaryResponseError, BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError, PayloadTooLargeError, RateLimitError, CreditLimitExceededError, InternalServerError } from './errors.js';
 export { createHttpTokenIssuer } from "./http.js";
 export type {
   ClientToken,

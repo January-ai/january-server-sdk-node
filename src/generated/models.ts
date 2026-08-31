@@ -5,6 +5,7 @@ export type ActivityLevel = "sedentary" | "lightly_active" | "moderately_active"
 export type AlternativeFood = {
   "id"?: FoodId;
   "name": string;
+  /** Empty for generic (non-branded) foods. */
   "brandName"?: string;
   "nutrients": CompleteScanNutritionFacts;
   "servings"?: Array<AlternativeServing>;
@@ -17,8 +18,11 @@ export type AlternativeServing = {
 };
 
 export type ApiErrorDto = {
+  /** A developer-facing explanation of what went wrong and how to fix it. */
   "message": string;
+  /** A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording. Current values: invalid_request, unauthorized, forbidden, not_found, not_implemented, payload_too_large, rate_limited, internal_error, upstream_error, service_unavailable, upstream_timeout. Only rate_limited, internal_error, upstream_error, service_unavailable, and upstream_timeout are safe to retry (with backoff) — not_implemented is permanent until the feature ships. New codes may be added over time; treat an unknown code according to its HTTP status class. */
   "code": string;
+  /** Link to the developer documentation. */
   "docsUrl": string;
 };
 
@@ -26,6 +30,7 @@ export const AutocompleteFoodCategory = {"general":"general","branded":"branded"
 export type AutocompleteFoodCategory = "general" | "branded" | (string & {});
 
 export type AutocompleteFoodsResponse = {
+  /** Ranked suggestions, generic foods before branded. Empty when nothing matches. */
   "items": Array<FoodSuggestion>;
 };
 
@@ -33,14 +38,20 @@ export type Barcode = string;
 
 export type CgmReading = {
   "timestamp": string;
+  /** mg/dL. At most one reading per 15-minute window. */
   "value": number;
 };
 
 export type ClientTokenResponseDto = {
+  /** The credential itself. Shown exactly once — it is stored only as a hash and can never be retrieved again. */
   "token": string;
+  /** Seconds until the token expires, counted from the moment this response was produced. Compute expiry from this rather than from `expires_at` — a device clock that is wrong makes an absolute timestamp wrong with it. */
   "expiresIn": number;
+  /** The same expiry as an absolute UTC instant, for logs and humans. */
   "expiresAt": string;
+  /** The end user this token is bound to, echoed back so a caller can assert it minted what it meant to. */
   "endUserId": string;
+  /** What this token may do — the scopes granted, whether requested explicitly or defaulted. */
   "scopes": Array<"foods:read" | "food_scans:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | (string & {})>;
 };
 
@@ -67,42 +78,59 @@ export type ConsumedHistoricalFood = {
 };
 
 export type CorrectPhotoScanBody = {
+  /** The meal name from the scan, when it returned one (photo scans do; text scans don't). Defaults to 'Meal'. */
   "mealName"?: string;
+  /** The detections array from a photo or text food scan, exactly as returned. Omitted zero-value nutrient keys are filled in automatically; each detection needs at least one serving. */
   "detections": Array<FoodDetection>;
+  /** Plain-English description of what to correct. */
   "userInput": string;
 };
 
 export type CreateClientTokenDto = {
+  /** Your stable ID for the end user this token acts as. The token is bound to it; requests made with the token act only on this user. */
   "endUserId": string;
+  /** What the token may do. Omit to grant the full client-grantable set (foods:read, food_scans:write, food_logs:read, food_logs:write, glucose:read, restaurants:read). Grant only what the screen needs. */
   "scopes"?: Array<"foods:read" | "food_scans:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | (string & {})>;
+  /** How long the token stays valid, in seconds. Between 300 and 7200; defaults to 1800. */
   "ttlSeconds"?: number;
 };
 
 export type CreateFoodLogBody = {
   "foods": Array<FoodLogInputFood>;
+  /** When the meal was eaten — any ISO-8601 offset; stored and returned in UTC. Omitted = now. */
   "timestampUtc"?: string;
   "name"?: string;
 };
 
 export type CreditsResponseDto = {
+  /** The plan this allowance comes from. */
   "plan": string;
+  /** First day of the current billing period (UTC), inclusive. */
   "periodStart": string;
+  /** Last day of the current billing period (UTC), inclusive. */
   "periodEnd": string;
+  /** When the allowance resets and `used_credits` returns to 0. */
   "resetsAt": string;
+  /** Credits included in the plan for this period. Absent when the plan has no ceiling. */
   "includedCredits"?: number;
+  /** Credits used so far this period. One successful v1.2 API call costs 1 credit; failed calls cost nothing. */
   "usedCredits": number;
+  /** Credits left in this period. Absent when the plan has no ceiling. */
   "remainingCredits"?: number;
 };
 
 export type DeleteFoodLogResponse = {
+  /** Deletion is idempotent — an unknown or already-deleted log_id returns the same response. */
   "status": string;
 };
 
 export type DetectedFood = {
   "id"?: FoodId;
   "name": string;
+  /** Empty for generic (non-branded) foods. */
   "brandName"?: string;
   "nutrients": CompleteScanNutritionFacts;
+  /** Never empty: every detection producer guarantees at least one serving. */
   "servings": Array<DetectedServing>;
 };
 
@@ -110,6 +138,7 @@ export type DetectedServing = {
   "id": ServingId;
   "quantity"?: number;
   "unit": string;
+  /** Quantity the parser selected from the text ('2 cups' → 2); text scans only. Advisory — corrections reads the serving's own quantity. */
   "selectedQuantity"?: number;
 };
 
@@ -120,8 +149,11 @@ export const DietRestriction = {"gluten":"gluten","lactose":"lactose","yeast":"y
 export type DietRestriction = "gluten" | "lactose" | "yeast" | "tree_nuts" | "peanuts" | "dairy" | "eggs" | "sulfites" | "soy" | "wheat" | "shellfish" | "fish" | "mushrooms" | "sesame" | "msg" | "caffeine" | "fodmaps" | (string & {});
 
 export type ErrorResponse = {
+  /** A developer-facing explanation of what went wrong and how to fix it. */
   "message": string;
+  /** A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording. Current values: invalid_request, unauthorized, forbidden, not_found, not_implemented, payload_too_large, rate_limited, internal_error, upstream_error, service_unavailable, upstream_timeout. Only rate_limited, internal_error, upstream_error, service_unavailable, and upstream_timeout are safe to retry (with backoff) — not_implemented is permanent until the feature ships. New codes may be added over time; treat an unknown code according to its HTTP status class. */
   "code": string;
+  /** Link to the developer documentation for this API version. */
   "docsUrl": string;
 };
 
@@ -142,6 +174,7 @@ export type FoodId = number;
 export type FoodLog = {
   "id": FoodLogId;
   "foods": Array<LoggedFood>;
+  /** Returned UTC timestamp. Treat as an opaque string because deployed responses are not consistently RFC 3339 formatted. */
   "timestampUtc": string;
   "name"?: (string) | null;
 };
@@ -155,23 +188,32 @@ export type FoodLogInputFood = {
 
 export type FoodLogInputServing = {
   "id": ServingId;
+  /** How many of that serving were consumed. */
   "quantity": number;
 };
 
 export type FoodScan = {
   "mealName"?: string;
+  /** Aggregated nutrition across all detections. */
   "totalNutrients"?: (CompleteScanNutritionFacts);
+  /** Detected foods. Always present — an empty array means nothing was recognized. */
   "detections": Array<FoodDetection>;
 };
 
 export type FoodSearchItem = {
   "id": FoodId;
   "name": string;
+  /** Absent for generic (non-branded) foods. */
   "brandName"?: string;
+  /** Per-serving nutrition in the shared nutrient vocabulary. Keys are omitted when the database has no value. */
   "nutrients": (NutritionFacts);
+  /** Glycemic index. */
   "glycemicIndex"?: number;
+  /** Glycemic load. */
   "glycemicLoad"?: number;
+  /** URL of a picture of the food, when the database has one. */
   "photoUrl"?: string;
+  /** The product's barcode, for branded foods that have one. */
   "upc"?: string;
   "servings": Array<ServingOption>;
   calories: number | null;
@@ -189,20 +231,27 @@ export type FoodSearchItem = {
 };
 
 export type FoodSearchResults = {
+  /** Total number of matches in the database; may exceed the number of items returned. */
   "totalCount": number;
   "items": Array<FoodSearchItem>;
 };
 
 export type FoodSuggestion = {
   "id": FoodId;
+  /** Generic foods are lowercase; branded foods keep their product name. */
   "name": string;
+  /** Absent for generic (non-branded) foods. */
   "brandName"?: string;
+  /** Thumbnail of the food, when the database has one. */
   "photoUrl"?: string;
+  /** Calories per default serving, in the shared nutrient vocabulary — the one nutrient a suggestion carries. Fetch the food for the full panel. */
   "nutrients"?: (NutritionFacts);
 };
 
 export type GlucoseChart = {
+  /** Suggested Y-axis lower bound (mg/dL). A fixed target-range bound, not the minimum of the curve. */
   "min": number;
+  /** Suggested Y-axis upper bound (mg/dL): 180 with Type 2 diabetes in health_conditions, otherwise 140. Not the maximum of the curve. */
   "max": number;
 };
 
@@ -210,13 +259,16 @@ export const GlucoseImpact = {"low":"low","medium":"medium","high":"high"} as co
 export type GlucoseImpact = "low" | "medium" | "high" | (string & {});
 
 export type GlucosePrediction = {
+  /** The predicted glucose curve at 15-minute intervals, starting at start_time. */
   "prediction": Array<GlucosePredictionPoint>;
   "impact": GlucoseImpact;
   "chart": GlucoseChart;
 };
 
 export type GlucosePredictionPoint = {
+  /** Minutes after start_time. */
   "minutes": number;
+  /** Predicted glucose, mg/dL. */
   "value": number;
 };
 
@@ -226,6 +278,7 @@ export type GlucosePredictionProfile = {
   "height": Height;
   "weight": Weight;
   "activityLevel"?: ActivityLevel;
+  /** Omit it (or send []) if none apply. Type 1 diabetes is not supported by the prediction model. */
   "healthConditions"?: Array<MedicalCondition>;
 };
 
@@ -239,6 +292,7 @@ export type HeightUnit = "in" | "cm" | (string & {});
 
 export type ListFoodLogsResponse = {
   "totalCount": number;
+  /** Logs in the range, ordered by timestamp. An empty list is a valid result. */
   "items": Array<FoodLog>;
 };
 
@@ -249,8 +303,11 @@ export type LoggedFood = {
   "imageUrl"?: (string) | null;
   "glycemicIndex"?: (number) | null;
   "glycemicLoad"?: (number) | null;
+  /** Scaled to the consumed serving. */
   "nutrients": (NutritionFacts);
+  /** What was logged. */
   "consumedServing": (FoodLogInputServing);
+  /** The serving definition the quantity refers to. */
   "servingDetails": (ServingDetails);
 };
 
@@ -275,9 +332,11 @@ export type NutritionFacts = {
   "addedSugars"?: NutrientAmount;
   "cholesterol"?: NutrientAmount;
   "calcium"?: NutrientAmount;
+  /** Unit: mcg. */
   "iron"?: (NutrientAmount);
   "potassium"?: NutrientAmount;
   "sodium"?: NutrientAmount;
+  /** Unit: IU. */
   "vitaminD"?: (NutrientAmount);
 };
 
@@ -285,17 +344,23 @@ export type PartnerUserId = string;
 
 export type PredictGlucoseBody = {
   "userProfile": GlucosePredictionProfile;
+  /** The meal to predict the glucose response for. */
   "foods": Array<FoodLogInputFood>;
+  /** When the meal is (or will be) eaten. Must carry a timezone designator. */
   "startTime": string;
+  /** Optional CGM history for personalization; requires consumed_foods. */
   "cgmData"?: Array<CgmReading>;
+  /** The meals eaten during the CGM history; requires cgm_data. */
   "consumedFoods"?: Array<ConsumedHistoricalFood>;
 };
 
 export type Restaurant = {
+  /** When coordinates are provided and the name matches no restaurant, results may be menu items instead. */
   "type": "restaurant" | "menu_item" | (string & {});
   "id": string;
   "name": string;
   "isChain"?: boolean;
+  /** Distance from (latitude, longitude) in meters; present only when coordinates were provided. */
   "distance"?: number;
   "city"?: string;
   "address1"?: string;
@@ -308,10 +373,15 @@ export type RestaurantMenuItem = {
   "name": string;
   "restaurantName": string;
   "isChain"?: boolean;
+  /** Per-dish nutrition in the shared nutrient vocabulary. Keys are omitted when the menu source has no value. */
   "nutrients"?: (NutritionFacts);
+  /** Glycemic index. */
   "glycemicIndex"?: number;
+  /** Glycemic load. */
   "glycemicLoad"?: number;
+  /** URL of a picture of the dish, when the source has one. */
   "imageUrl"?: string;
+  /** Distance from (latitude, longitude) in meters. */
   "distance"?: number;
   "servings": Array<ServingOption>;
 };
@@ -319,19 +389,23 @@ export type RestaurantMenuItem = {
 export type RestaurantMenuItemId = string;
 
 export type ScanFoodPhotoBody = {
+  /** The meal photo, as an http(s) URL or a base64 data URI (data:image/jpeg;base64,…). Any image of the meal works — a camera photo, a screenshot, or a hosted picture. Formats: JPG, PNG, WEBP, and non-animated GIF. A URL must be publicly fetchable server-side: hosts that block hotlinking or require a login cannot be read. Prefer the URL when the image is already hosted — base64 inflates the payload by ~33%, and request bodies over 5 MB are rejected, so keep raw images under ~3.5 MB when encoding. */
   "image": string;
 };
 
 export type SearchFoodsByNaturalLanguageBody = {
+  /** Natural-language description of what was eaten; parsed into detected foods with quantities. */
   "text": string;
 };
 
 export type SearchRestaurantMenuItemsResponse = {
+  /** Total number of matches; may exceed the number of items returned. */
   "totalCount": number;
   "items": Array<RestaurantMenuItem>;
 };
 
 export type SearchRestaurantsResponse = {
+  /** Total number of matches; may exceed the number of items returned. */
   "totalCount": number;
   "items": Array<Restaurant>;
 };
@@ -349,8 +423,10 @@ export type ServingOption = {
   "id": ServingId;
   "quantity": number;
   "unit": string;
+  /** Multiplier applied to the food's nutrition values for this serving. */
   "scalingFactor": number;
   "weightGrams": (number) | null;
+  /** Whether this is the default serving for the food. */
   "isPrimary": boolean;
 };
 
@@ -358,16 +434,20 @@ export const Sex = {"male":"male","female":"female"} as const;
 export type Sex = "male" | "female" | (string & {});
 
 export type SuggestFoodAlternativesBody = {
+  /** Allergens/ingredients to avoid. Omit it (or send []) if none apply. */
   "dietRestrictions"?: Array<DietRestriction>;
+  /** Dietary patterns to match. Omit it (or send []) if none apply. */
   "dietPreferences"?: Array<DietPreference>;
 };
 
 export type SuggestFoodAlternativesResponse = {
+  /** Healthier alternatives matching the restrictions and preferences. An empty array is a valid result, not an error. */
   "alternatives": Array<FoodAlternative>;
 };
 
 export type UpdateFoodLogBody = {
   "foods"?: Array<FoodLogInputFood>;
+  /** UTC consumption time, ending in Z. */
   "timestampUtc"?: string;
   "name"?: string;
 };
@@ -397,7 +477,9 @@ export type AutocompleteFoodsRequest = {
 export type SuggestFoodAlternativesRequest = {
   "endUserId"?: PartnerUserId;
   "foodId": FoodId;
+  /** Allergens/ingredients to avoid. Omit it (or send []) if none apply. */
   "dietRestrictions"?: Array<DietRestriction>;
+  /** Dietary patterns to match. Omit it (or send []) if none apply. */
   "dietPreferences"?: Array<DietPreference>;
 } & { signal?: AbortSignal };
 
@@ -431,18 +513,23 @@ export type SearchRestaurantMenuItemsRequest = {
 
 export type ScanFoodPhotoRequest = {
   "endUserId"?: PartnerUserId;
+  /** The meal photo, as an http(s) URL or a base64 data URI (data:image/jpeg;base64,…). Any image of the meal works — a camera photo, a screenshot, or a hosted picture. Formats: JPG, PNG, WEBP, and non-animated GIF. A URL must be publicly fetchable server-side: hosts that block hotlinking or require a login cannot be read. Prefer the URL when the image is already hosted — base64 inflates the payload by ~33%, and request bodies over 5 MB are rejected, so keep raw images under ~3.5 MB when encoding. */
   "image": string;
 } & { signal?: AbortSignal };
 
 export type SearchFoodsByNaturalLanguageRequest = {
   "endUserId"?: PartnerUserId;
+  /** Natural-language description of what was eaten; parsed into detected foods with quantities. */
   "query": string;
 } & { signal?: AbortSignal };
 
 export type CorrectPhotoScanRequest = {
   "endUserId"?: PartnerUserId;
+  /** The meal name from the scan, when it returned one (photo scans do; text scans don't). Defaults to 'Meal'. */
   "mealName"?: string;
+  /** The detections array from a photo or text food scan, exactly as returned. Omitted zero-value nutrient keys are filled in automatically; each detection needs at least one serving. */
   "detections": Array<FoodDetection>;
+  /** Plain-English description of what to correct. */
   "userInput": string;
 } & { signal?: AbortSignal };
 
@@ -450,6 +537,7 @@ export type CreateFoodLogRequest = {
   "endUserId": PartnerUserId;
   "endUserTimezone"?: string;
   "foods": Array<FoodLogInputFood>;
+  /** When the meal was eaten — any ISO-8601 offset; stored and returned in UTC. Omitted = now. */
   "timestampUtc"?: string | Date;
   "name"?: string;
 } & { signal?: AbortSignal };
@@ -466,6 +554,7 @@ export type UpdateFoodLogRequest = {
   "endUserTimezone"?: string;
   "logId": FoodLogId;
   "foods"?: Array<FoodLogInputFood>;
+  /** UTC consumption time, ending in Z. */
   "timestampUtc"?: string;
   "name"?: string;
 } & { signal?: AbortSignal };
@@ -480,15 +569,22 @@ export type PredictGlucoseRequest = {
   "endUserId"?: PartnerUserId;
   "endUserTimezone"?: string;
   "userProfile": GlucosePredictionProfile;
+  /** The meal to predict the glucose response for. */
   "foods": Array<FoodLogInputFood>;
+  /** When the meal is (or will be) eaten. Must carry a timezone designator. */
   "startTime": string | Date;
+  /** Optional CGM history for personalization; requires consumed_foods. */
   "cgmData"?: Array<CgmReading>;
+  /** The meals eaten during the CGM history; requires cgm_data. */
   "consumedFoods"?: Array<ConsumedHistoricalFood>;
 } & { signal?: AbortSignal };
 
 export type MintClientTokenRequest = {
+  /** Your stable ID for the end user this token acts as. The token is bound to it; requests made with the token act only on this user. */
   "endUserId": string;
+  /** What the token may do. Omit to grant the full client-grantable set (foods:read, food_scans:write, food_logs:read, food_logs:write, glucose:read, restaurants:read). Grant only what the screen needs. */
   "scopes"?: Array<"foods:read" | "food_scans:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | (string & {})>;
+  /** How long the token stays valid, in seconds. Between 300 and 7200; defaults to 1800. */
   "ttlSeconds"?: number;
 } & { signal?: AbortSignal };
 

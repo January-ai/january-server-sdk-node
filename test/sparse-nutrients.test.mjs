@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { January, JanuaryApiError } from '../dist/index.js';
+import { January, JanuaryResponseError } from '../dist/index.js';
 
 // Deliberately never load .env or use a real network transport.
 const fixtures = JSON.parse(await readFile(new URL('./fixtures/contract.json', import.meta.url), 'utf8'));
@@ -76,7 +76,7 @@ for (const fixture of cases) {
       for (const path of fixture.nutrientPaths) assertNutrients(atPath(result, path), fixture.expectedNutrients);
     } else {
       await assert.rejects(call(client, operation, input), error => {
-        assert.ok(error instanceof JanuaryApiError);
+        assert.ok(error instanceof JanuaryResponseError);
         assert.equal(error.code, 'invalid_response');
         assert.equal(error.status, fixture.response.status, 'Keep actual HTTP status, not the decoder fallback 502');
         assert.equal(error.requestId, new Headers(fixture.response.headers).get('x-request-id'));

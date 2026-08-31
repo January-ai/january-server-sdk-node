@@ -11,6 +11,11 @@ const root = process.cwd();
 await mkdir('.package-tests', { recursive: true });
 const consumer = await mkdtemp(resolve('.package-tests/consumer-'));
 function run(command, args, cwd = root) {
+  if (command === 'npm' && process.env.npm_execpath) {
+    args = [process.env.npm_execpath, ...args]; command = process.execPath;
+  } else if (command.endsWith('/tsc') || command.endsWith('\\tsc')) {
+    args = [command.replace(/[\\/]\.bin[\\/]tsc$/, '/typescript/bin/tsc'), ...args]; command = process.execPath;
+  }
   const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
   if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} failed\n${result.stdout}\n${result.stderr}`);
   return result.stdout;
@@ -61,6 +66,12 @@ try {
     assert.equal(quickstart.stderr, '');
   }
   assert.equal(count, 14); assert.equal(deletes, 2);
+  // The optional native-image peer is not installed in this consumer. Both
+  // package formats must still load the helper and forward URLs unchanged.
+  for (const loader of ["const {prepareImage}=await import('@january-ai/server/images');", "const {prepareImage}=require('@january-ai/server/images');"]) {
+    const mode=loader.includes('await import')?'module':'commonjs';
+    run(process.execPath,['--input-type='+mode,'-e',loader+"(async()=>{if(await prepareImage('https://example.invalid/food.jpg')!=='https://example.invalid/food.jpg')throw Error('URL changed')})().catch(()=>process.exit(1));"],consumer);
+  }
   const browser = spawnSync(process.execPath, ['--conditions=browser', '--input-type=module', '-e', "import '@january-ai/server'"], { cwd: consumer, encoding: 'utf8' });
   assert.notEqual(browser.status, 0); assert.match(browser.stderr, /Node.js-only/);
   console.log(`Installed ESM + CommonJS consumers and JavaScript + TypeScript README quick starts passed: 14 local HTTP calls, exactly one revocation per compatibility flow. Artifact: ${join(consumer, packed.filename)}`);

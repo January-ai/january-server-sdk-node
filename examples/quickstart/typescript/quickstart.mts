@@ -12,6 +12,7 @@ async function main() {
 
   const january = new January({
     secretKey,
+    maxRetries: 0,
   });
   // In your application, use the ID from your authenticated server session.
   const user = january.forUser({
