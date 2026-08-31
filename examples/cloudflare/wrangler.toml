@@ -1,0 +1,13 @@
+name = "january-token-example"
+main = "worker.ts"
+compatibility_date = "2026-08-22"
+compatibility_flags = ["nodejs_compat"]
+
+# The SDK's server-only guard requires process.versions.node.
+# npm run dev loads JANUARY_API_KEY from the explicit root ../../.env path.
+# Production secret, after replacing demo authentication:
+# npx wrangler secret put JANUARY_API_KEY
+
+[dev]
+ip = "127.0.0.1"
+port = 8787

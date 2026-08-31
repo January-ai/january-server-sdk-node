@@ -1,0 +1,20 @@
+{
+  "name": "january-server-express-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=../../.env --import tsx server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@january-ai/server": "file:../..",
+    "express": "5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.3",
+    "@types/node": "22.18.6",
+    "tsx": "4.20.5",
+    "typescript": "7.0.2"
+  }
+}

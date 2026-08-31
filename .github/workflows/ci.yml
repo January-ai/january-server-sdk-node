@@ -1,0 +1,26 @@
+name: Node SDK
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test-package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run test:distribution
+      - run: npm run demo
+      - name: Install Worker example dependencies
+        working-directory: examples/cloudflare
+        run: npm ci --ignore-scripts
+      - name: Worker typecheck and offline runtime tests
+        working-directory: examples/cloudflare
+        run: npm test

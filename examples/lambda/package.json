@@ -1,0 +1,17 @@
+{
+  "name": "january-server-lambda-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@january-ai/server": "file:../.."
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.152",
+    "@types/node": "22.18.6",
+    "typescript": "7.0.2"
+  }
+}

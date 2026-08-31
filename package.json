@@ -1,0 +1,42 @@
+{
+  "name": "@january-ai/server",
+  "version": "0.0.0-local",
+  "private": true,
+  "description": "January trusted-backend SDK generated from the server contract development profile",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "workerd": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "browser": "./dist/browser.js",
+      "node": {
+        "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+        "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.cjs" }
+      },
+      "default": "./dist/browser.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "sdk-contract.lock.json",
+    "sdk-surface.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-cjs.mjs",
+    "demo": "npm run build && npm --prefix examples/express install --ignore-scripts && node scripts/local-demo.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepack": "npm run build",
+    "test:distribution": "node scripts/test-distribution.mjs",
+    "test:e2e:offline": "node --test test/live-runner.test.mjs",
+    "test:e2e": "npm run build && node examples/live/main.mjs",
+    "demo:e2e": "npm run test:e2e"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

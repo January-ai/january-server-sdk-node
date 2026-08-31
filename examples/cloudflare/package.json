@@ -1,0 +1,21 @@
+{
+  "name": "january-server-cloudflare-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --ip 127.0.0.1 --port 8787 --env-file ../../.env",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@january-ai/server": "file:../.."
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260828.1",
+    "esbuild": "0.28.1",
+    "miniflare": "5.20260828.0-alpha",
+    "typescript": "7.0.2",
+    "wrangler": "4.127.1"
+  }
+}

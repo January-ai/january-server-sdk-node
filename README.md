@@ -1,0 +1,308 @@
+# January server SDK for Node.js
+
+Use January's food search, barcode lookup, food analysis, food logs, and glucose prediction from a trusted Node.js backend. Includes local serving calculations and server-only token and credit operations.
+
+Requires Node.js 22+. Supports TypeScript, ESM, and CommonJS. No runtime dependencies. Server API keys must never be shipped to browsers or mobile apps; browser imports are rejected.
+
+For Cloudflare Workers, use the [Worker example](examples/cloudflare/README.md) with `nodejs_compat` enabled. It uses the same API-key configuration and SDK methods.
+
+## Before you begin
+
+1. **Create your developer account.** [Sign up](https://dashboard.january.ai/sign-up), or [sign in](https://dashboard.january.ai/sign-in) if you already have an account.
+2. **Set up your organization** when prompted. Keys, usage, and billing belong to the active organization.
+3. **Create a server API key.** In the [Developer Dashboard](https://dashboard.january.ai/dashboard), open **API keys → Create key**, enter a **Key name**, and select **Create key**.
+4. **Save the full secret immediately.** It is shown only once. Store it in a password manager or secrets vault; if lost, create a replacement and intentionally retire the old key after updating its consumers. Never commit the key.
+5. **Review credits before live calls.** Check your current plan in [Billing](https://dashboard.january.ai/billing). The root `credits()` operation reports your account balance. Allowances and costs depend on your plan.
+6. **Install below and save `JANUARY_API_KEY` in your local `.env` file.** The quick-start command loads it for you.
+
+| Credential | Used for |
+| --- | --- |
+| Dashboard login | The human managing the account and organization |
+| Server API key (`sk-…`) | Authenticating this backend SDK |
+| Client token (`ct-…`) | Short-lived, end-user credentials for mobile/web client SDKs; not a server SDK key |
+
+Client tokens are optional. Only if your backend will issue them to client apps, open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens) and select **Enable client tokens**, then use `mintClientToken` on your backend. This is **not required for the server food-search quick start**. Do not put a server key into a client application.
+
+## Install
+
+In your Node.js application directory, install the package from npm:
+
+```sh
+npm install @january-ai/server
+```
+
+TypeScript declarations and ESM/CommonJS builds are included. No SDK checkout or build step is needed.
+
+## Quick start
+
+This example makes one food-search request. It may consume API credits, but does not create food logs, mint tokens, or revoke tokens.
+
+Create `.env` in your application directory and paste your server API key into it:
+
+```dotenv
+JANUARY_API_KEY=your-server-api-key
+```
+
+When using this repository, copy [.env.example](.env.example) to `.env` first; keep an existing `.env` intact. Only the API key is needed.
+
+Add `.env` to your application's `.gitignore` (it is already ignored in this repository). Never commit or share the filled file. On macOS/Linux, `chmod 600 .env` restricts it to your user. `.env` is a local convenience, not encryption; use your deployment platform's secret storage in production.
+
+The SDK connects to January's production API automatically. The command below uses Node's built-in [environment-file loading](https://nodejs.org/api/cli.html#--env-filefile); no dotenv dependency is needed. Existing environment variables take precedence over the file.
+
+Save this complete example as `quickstart.mjs` in your application directory. The same source is available in [examples/quickstart/main.mjs](examples/quickstart/main.mjs):
+
+<!-- quickstart:start -->
+```js
+import {
+  January, JanuaryApiError, JanuaryConfigurationError, JanuaryValidationError, JanuaryTransportError,
+} from '@january-ai/server';
+
+async function main() {
+  const secretKey = process.env.JANUARY_API_KEY?.trim();
+  if (!secretKey?.trim()) {
+    console.error('Set JANUARY_API_KEY in your .env file before running.');
+    process.exitCode = 2;
+    return;
+  }
+
+  const january = new January({
+    secretKey,
+  });
+  // In your application, use the ID from your authenticated server session.
+  const user = january.forUser({
+    endUserId: 'january-quickstart',
+    endUserTimezone: 'UTC',
+  });
+  const foods = await user.foods.search({ query: 'banana' });
+  console.log(`Found ${foods.items.length} foods in this response.`);
+  console.log(foods.items[0] ? `First food: ${foods.items[0].name}` : 'No foods found.');
+}
+
+try {
+  await main();
+} catch (error) {
+  // SDK error metadata is credential-redacted; JSON escapes control characters.
+  // Never print the raw error, message, headers, or response body.
+  if (error instanceof JanuaryApiError) {
+    console.error(JSON.stringify({
+      status: error.status, code: error.code, requestId: error.requestId,
+    }));
+    if (error.status === 401) {
+      console.error('Check your server API key in https://dashboard.january.ai/dashboard.');
+    } else if (error.status === 403) {
+      console.error('Check account permissions with support@january.ai. Client tokens are not required for this search.');
+    } else if (error.code === 'credit_limit_exceeded') {
+      console.error('Check your credit balance and plan in https://dashboard.january.ai/billing.');
+    } else if (error.status === 429) {
+      console.error('Rate limit reached. Respect Retry-After before retrying this read.');
+    } else {
+      console.error('Food search failed. Contact support@january.ai with these diagnostic fields.');
+    }
+  } else if (error instanceof JanuaryConfigurationError) {
+    console.error('Check JANUARY_API_KEY (server key, not ct- client token).');
+  } else if (error instanceof JanuaryValidationError) {
+    console.error('Invalid request input. Check the method parameters; no API request was sent.');
+  } else if (error instanceof JanuaryTransportError) {
+    console.error(`Transport failure: ${error.code}. Check your connection or timeout.`);
+  } else {
+    console.error('Food search failed. Check the README troubleshooting section.');
+  }
+  process.exitCode = 1;
+}
+```
+<!-- quickstart:end -->
+
+Run it from your application directory:
+
+```sh
+node --env-file=.env quickstart.mjs
+```
+
+Success prints the number of foods in this response and the first food's name. An empty result prints `No foods found.`; exact counts and names depend on the API response. A missing key exits with code 2 before any request; a failed request exits with code 1 and a safe diagnostic.
+
+TypeScript uses the same public imports with included declarations. For CommonJS, use `const { January } = require('@january-ai/server');` and make calls inside an async function.
+
+Use an end-user ID derived from your authenticated server session in your application, not the example ID or untrusted request input.
+
+### TypeScript in a new application
+
+Create a new TypeScript application and install the SDK:
+
+```sh
+mkdir january-ts-example
+cd january-ts-example
+npm init -y
+npm install @january-ai/server
+npm install --save-dev typescript@7.0.2 @types/node@22
+```
+
+Save the complete JavaScript example above as `quickstart.mts` in this directory. It is also valid strict TypeScript; the SDK supplies the request and response types. The identical source is available at [quickstart.mts](examples/quickstart/typescript/quickstart.mts).
+
+Save the following as `tsconfig.json` beside it:
+
+<!-- quickstart:tsconfig:start -->
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "types": ["node"],
+    "outDir": "dist"
+  },
+  "include": ["quickstart.mts"]
+}
+```
+<!-- quickstart:tsconfig:end -->
+
+Create `.env` in this TypeScript application's directory as shown above, then compile and run:
+
+```sh
+npx tsc -p tsconfig.json
+node --env-file=.env dist/quickstart.mjs
+```
+
+The `.mts` extension explicitly selects ESM and compiles to `.mjs`; no implicit package-module setting is required. This makes the same one live request as the JavaScript quick start. The [configuration file](examples/quickstart/typescript/tsconfig.json) and source are tested in an installed-package consumer.
+
+## Common tasks
+
+Shared resources are available on the root client and on `january.forUser(...)`. A user view binds the user identity and does not expose server-only operations.
+
+| Resource | Methods |
+| --- | --- |
+| `foods` | `search`, `autocomplete`, `suggestAlternatives`, `lookupBarcode`, `get` |
+| `restaurants` | `search`, `searchMenuItems` |
+| `foodAnalysis` | `analyzePhoto`, `analyzeDescription`, `correct` |
+| `foodLogs` | `list`, `create`, `update`, `delete` |
+| `glucose` | `predict` |
+
+These fragments assume `user` from the quick start. Each awaited call uses the API:
+
+```ts
+const foods = await user.foods.lookupBarcode({ upc: '049000006346' });
+const analysis = await user.foodAnalysis.analyzeDescription({
+  query: 'two eggs and toast',
+});
+```
+
+Use numeric `foodId`, string `upc`, `query` for description analysis, an image URL or data URI for photo analysis, and string `logId` for food logs. Menu-item search uses location and query, not a restaurant-ID filter. Typed signatures and model definitions are included in the package.
+
+### Serving and quantity calculations
+
+`FoodPortion` recalculates nutrients locally, with no API call or key required. Use a hydrated food from search, get, or barcode lookup. Resolve a suggestion or detection's food ID through `foods.get` when it lacks complete serving metadata.
+
+This fragment assumes a hydrated `food` and a scoped `user`:
+
+```ts
+import { FoodPortion } from '@january-ai/server';
+
+const portion = FoodPortion.from(food, { quantity: 2 });
+console.log(portion.nutrition, portion.totalWeightGrams);
+// Explicit write, not part of the quick start:
+await user.foodLogs.create({ foods: [portion.selection] });
+// The same selection fits glucose.predict's foods array.
+```
+
+Pass `servingId` to select a specific serving. Otherwise, the primary serving is used, falling back to the first. Quantity defaults to the selected serving's listed quantity. It is measured in the serving's unit, not an extra multiplier: nutrients and glycemic load scale by `quantity * scalingFactor / serving.quantity`; weight scales by `quantity / serving.quantity`; glycemic index stays unchanged.
+
+All 16 nutrients preserve units, missing measurements, and real zero values. Inputs are not mutated. To change a portion, construct a new one from the original food. Quantities must be finite, positive, and at most 10,000; serving quantity and scaling factor must be finite and positive. `FoodPortionError.code` is `no_servings`, `serving_not_found`, `invalid_serving`, or `invalid_quantity`.
+
+## Server-only operations
+
+Root methods are `mintClientToken`, `revokeClientTokens`, and `credits`. They are not available on a scoped user view. Token creation requires client tokens to be enabled for the account.
+
+These are independent fragments assuming `january` and an `authenticatedUserId` from your server session. Do not run revocation as part of normal token creation:
+
+```ts
+const token = await january.mintClientToken({
+  endUserId: authenticatedUserId,
+  scopes: ['foods:read'],
+  ttlSeconds: 1800,
+});
+// Relay token.token only to that authenticated user's client. Never log it.
+```
+
+```ts
+const revoked = await january.revokeClientTokens({
+  endUserId: authenticatedUserId,
+});
+// revoked.revokedCount is the raw X-Revoked-Count string when supplied.
+// revoked.$metadata.status is 204.
+```
+
+```ts
+const balance = await january.credits();
+```
+
+Revocation sends one DELETE with the `end_user_id` query parameter. There is no automatic retry, revoke-all helper, or loop. Keep server keys on trusted backends; never pass them to clients.
+
+## Configuration and errors
+
+Nutrient maps may be sparse or empty: omitted measurements stay absent and an actual measured zero remains `0`. Each present nutrient amount must still contain its required `value` and `unit`. Malformed responses raise `JanuaryApiError` with `code: 'invalid_response'`, preserving the actual HTTP status and request ID. Passing returned detections to `foodAnalysis.correct` does not fill omitted nutrients with zeros.
+
+This fragment assumes `user` from the quick start and an `AbortController` named `abortController`.
+
+```ts
+await user.foods.search(
+  { query: 'banana' },
+  { signal: abortController.signal, timeoutMs: 5_000 },
+);
+```
+
+- Default overall timeout: 30 seconds, including response body reading.
+- No automatic retries, pagination, idempotency keys, or background calls.
+- `signal` is also accepted on request objects for client-style compatibility.
+- Configure `timeoutMs` at construction to set the request timeout. Tests can inject a mock `fetch` transport.
+- Default production origin uses HTTPS. Plain HTTP is only accepted for localhost or an explicit test transport. Redirects are refused to avoid credential forwarding.
+- Every result exposes non-enumerable `$metadata` with status, request ID, sanitized headers, and retry-after duration; an optional `onResponse` callback receives the same metadata.
+- `JanuaryApiError` (`JanuaryAPIError` alias) preserves `code`, `status`, `docsUrl`, `requestId`, `headers`, and `retryAfterMs`.
+- `JanuaryTransportError.code` is `connection`, `timeout`, or `canceled`.
+- `JanuaryValidationError` means a request argument failed local validation before any HTTP request. Check the method's typed parameters and correct the input; retrying the same input will not help. This is distinct from `JanuaryApiError`, which represents an HTTP/API failure, and `JanuaryConfigurationError`, which concerns client setup.
+- Credentials, request content, and token values are redacted from SDK error/inspection output. There is no logging or telemetry. Token fields remain readable and JSON-serializable so applications can relay them securely.
+
+No environment variables are read implicitly. A known `ct-` client token is rejected as `secretKey`. The caller must derive end-user identity from its authenticated session, not untrusted client input.
+
+
+### Troubleshooting your first request
+
+The example prints credential-redacted `status`, `code`, and `requestId` for API errors, followed by an actionable hint. JSON output escapes control characters. Never log the raw error, its message/body, authorization headers, or tokens. Review diagnostics before sharing them with [support@january.ai](mailto:support@january.ai).
+
+| Symptom | What to check |
+| --- | --- |
+| Missing `.env` file or API key | Create `.env` in the application directory, set `JANUARY_API_KEY`, and run with `node --env-file=.env`. An empty key exits before a request. |
+| Configuration error before a request | Use the full server API key, not a `ct-` client token. |
+| `JanuaryValidationError`; no HTTP status | Correct missing or invalid method arguments, such as an invalid `upc`. No request was sent; do not treat this as an authentication or server failure. |
+| HTTP 401 | Confirm the key is complete, active, and from the intended organization. Replace a revoked key through the dashboard. |
+| HTTP 403 | Check account access and the error code. Token minting additionally needs **Enable client tokens**; food search does not. |
+| `credit_limit_exceeded` (including HTTP 429) | Check `credits()` and [Billing](https://dashboard.january.ai/billing). Waiting for a rate-limit backoff does not replenish credits. |
+| HTTP 429 / `rate_limited` | Reduce request frequency; respect Retry-After before retrying this read. The SDK does not retry automatically. |
+| Connection failure, timeout, or HTTP 5xx | Check connectivity/service availability and your configured timeout. Retry only when safe; a timed-out write may already have succeeded. |
+| `invalid_response` | Preserve the HTTP status and request ID and contact support; do not share private response bodies. |
+
+Successful empty results are not authentication errors. The quick start searches using a synthetic user; in your application, derive the user ID from your own authenticated session.
+
+## Examples and testing
+
+To run the repository examples and tests, follow the [contributor setup](CONTRIBUTING.md#local-verification), then run these commands from the repository root:
+
+| Task | Command | API access |
+| --- | --- | --- |
+| First food search | `node --env-file=.env examples/quickstart/main.mjs` | One live request; credits may apply |
+| Local portion calculation | `node examples/portions/main.mjs` | None; synthetic food |
+| Tests | `npm test` | Loopback fixtures only |
+| Installed package checks | `npm run test:distribution` | Loopback fixtures only |
+| Full live E2E | `npm run test:e2e` | Explicit opt-in; billable calls and synthetic writes |
+
+The full live workflow is not the quick start. It exercises all 18 operations, including token creation/revocation and temporary food-log creation/deletion. Read [live testing and cleanup](docs/live-testing.md) before running it. Default tests and CI never load production keys.
+
+## Distribution and releases
+
+The npm package `@january-ai/server` includes compiled ESM and CommonJS JavaScript plus TypeScript declarations. Commit your application's lockfile to keep dependency versions reproducible. See [Contributing](CONTRIBUTING.md#local-verification) for package build and installation checks.
+
+## Reference, support, and contributing
+
+- [HTTP API reference](https://partners.january.ai/v1.2/docs#/) documents the server contract. SDK names use the platform conventions shown above.
+- [Typed SDK operations](src/generated/api.ts) and [models](src/generated/models.ts) describe the SDK's methods and types; editor autocomplete also exposes these definitions.
+- For help, contact [support@january.ai](mailto:support@january.ai). Include the SDK/runtime version, API status/code, and sanitized request ID when reporting failures; never include API keys, tokens, or private payloads.
+- [Contributing](CONTRIBUTING.md) covers local tests, contract generation, and compatibility details.

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.package-tests/
+*.tgz
+.env
+.env.*
+!.env.example
+.e2e-results/
