@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { January, JanuaryApiError, JanuaryValidationError } from "@january-ai/server";
+import { January, JanuaryResponseError, JanuaryValidationError } from "@january-ai/server";
 
 const requests = [];
 let responseBody = { token: "ct-fixture", expires_in: 300, future_field: { enabled: true } };
@@ -27,7 +27,7 @@ try {
   assert.equal(requests.length, 2);
   for (const body of [{ token: "ct-fixture", expires_in: "300" }, { token: "ct-fixture", expires_in: true }, { token: "ct-fixture", expires_in: null }, { expires_in: 300 }, { token: "ct-fixture", expiresIn: 300 }]) {
     responseBody = body;
-    await assert.rejects(client.clientTokens.create({ endUserId: "user" }), JanuaryApiError);
+    await assert.rejects(client.clientTokens.create({ endUserId: "user" }), JanuaryResponseError);
   }
   status = 429;
   responseBody = { message: "Try later", code: "rate_limited" };

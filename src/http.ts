@@ -9,7 +9,7 @@ import { validateCreateInput } from './validation.js';
 export function createHttpTokenIssuer(options: HttpClientTokenIssuerOptions): ClientTokenIssuer {
   if (!options.secretKey?.trim()) throw new JanuaryConfigurationError('secretKey is required');
   if (options.clientTokenPath !== undefined) throw new JanuaryConfigurationError('Endpoint paths come from the contract; use baseUrl for a mock service');
-  const runtime = new HttpRuntime(options);
+  const runtime = new HttpRuntime({...options, maxRetries:0});
   return Object.freeze({
     async create(input) {
       validateCreateInput(input);

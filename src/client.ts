@@ -19,7 +19,7 @@ export class January extends GeneratedJanuary {
       create: async (input: CreateClientTokenInput): Promise<ClientToken> => {
         validateCreateInput(input);
         if (issuer) return issuer.create(input);
-        const token = await this.mintClientToken({ ...input, ...(input.scopes ? { scopes: [...input.scopes] } : {}) } as Parameters<January['mintClientToken']>[0]);
+        const token = await this.mintClientToken({ ...input, ...(input.scopes ? { scopes: [...input.scopes] } : {}) } as Parameters<January['mintClientToken']>[0], {maxRetries:0});
         const result = { token: token.token, expiresIn: token.expiresIn };
         Object.defineProperty(result, Symbol.for('nodejs.util.inspect.custom'), { value: () => ({ ...result, token: '[REDACTED]' }) });
         return result;

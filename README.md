@@ -67,6 +67,7 @@ async function main() {
 
   const january = new January({
     secretKey,
+    maxRetries: 0,
   });
   // In your application, use the ID from your authenticated server session.
   const user = january.forUser({
@@ -251,7 +252,7 @@ await user.foods.search(
 ```
 
 - Default overall timeout: 30 seconds, including response body reading.
-- No automatic retries, pagination, idempotency keys, or background calls.
+- Two bounded retries by default, controlled with `maxRetries` (zero disables). Stable API error codes drive retries; credit exhaustion and permanent failures are never retried. Revocation is single-attempt, and token/food-log creation are not replayed after ambiguous failures. No automatic pagination, idempotency keys, or background calls. Retried analysis can consume additional credits. See [photos, errors and retries](docs/images-and-errors.md).
 - `signal` is also accepted on request objects for client-style compatibility.
 - Configure `timeoutMs` at construction to set the request timeout. Tests can inject a mock `fetch` transport.
 - Default production origin uses HTTPS. Plain HTTP is only accepted for localhost or an explicit test transport. Redirects are refused to avoid credential forwarding.
@@ -276,7 +277,7 @@ The example prints credential-redacted `status`, `code`, and `requestId` for API
 | HTTP 401 | Confirm the key is complete, active, and from the intended organization. Replace a revoked key through the dashboard. |
 | HTTP 403 | Check account access and the error code. Token minting additionally needs **Enable client tokens**; food search does not. |
 | `credit_limit_exceeded` (including HTTP 429) | Check `credits()` and [Billing](https://dashboard.january.ai/billing). Waiting for a rate-limit backoff does not replenish credits. |
-| HTTP 429 / `rate_limited` | Reduce request frequency; respect Retry-After before retrying this read. The SDK does not retry automatically. |
+| HTTP 429 / `rate_limited` | Default clients retry within configured bounds. The quickstart and production runner explicitly disable retries. |
 | Connection failure, timeout, or HTTP 5xx | Check connectivity/service availability and your configured timeout. Retry only when safe; a timed-out write may already have succeeded. |
 | `invalid_response` | Preserve the HTTP status and request ID and contact support; do not share private response bodies. |
 

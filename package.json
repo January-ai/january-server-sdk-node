@@ -7,6 +7,13 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./images": {
+      "node": {
+        "import": { "types": "./dist/images.d.ts", "default": "./dist/images.js" },
+        "require": { "types": "./dist/cjs/images.d.cts", "default": "./dist/cjs/images.cjs" }
+      },
+      "default": "./dist/browser.js"
+    },
     ".": {
       "workerd": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
       "browser": "./dist/browser.js",
@@ -34,8 +41,12 @@
     "demo:e2e": "npm run test:e2e"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "sharp": "^0.35.4",
     "typescript": "7.0.2"
   },
+  "peerDependencies": { "sharp": ">=0.35.4 <1" },
+  "peerDependenciesMeta": { "sharp": { "optional": true } },
   "engines": {
     "node": ">=22"
   }

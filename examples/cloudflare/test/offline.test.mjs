@@ -41,13 +41,16 @@ after(async () => {
   try {
     await worker?.dispose();
   } finally {
+    // Release esbuild's background process before removing its Windows cwd.
+    const { stop } = await import("esbuild");
+    stop();
     process.chdir(originalCwd);
-    if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true });
+    if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
 test("tsc --noEmit resolves the SDK through workerd", async () => {
-  const result = await run(join(example, "node_modules", ".bin", "tsc"), ["--noEmit"], {
+  const result = await run(process.execPath, [join(example, "node_modules", "typescript", "bin", "tsc"), "--noEmit"], {
     cwd: fixture,
     env: { PATH: dirname(process.execPath), TMPDIR: temporaryRoot },
     timeout: 30_000,
