@@ -25,7 +25,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-cjs.mjs",
-    "demo": "npm run build && npm --prefix examples/express install --ignore-scripts && node scripts/local-demo.mjs",
+    "demo": "npm run build && npm --prefix examples/express ci --ignore-scripts && npm --prefix examples/lambda ci --ignore-scripts && node scripts/local-demo.mjs",
     "test": "npm run build && node --test test/*.test.mjs",
     "prepack": "npm run build",
     "test:distribution": "node scripts/test-distribution.mjs",
