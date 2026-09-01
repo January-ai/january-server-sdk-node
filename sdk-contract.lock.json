@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "language": "node",
-  "contractSha256": "05c0482ae8bb32c06b3e0a75392596e12a8dbeb3fb733dbd94b0c4db60a1b86c",
-  "generatorSha256": "c4a5252fb3fb396d554bad5a19916f12a1e1da38e6152c8dfd272e6a04d47c3f",
-  "operationCount": 18
+  "contractSha256": "634a84f81d9d1beabed96dafe9c7d584087ce9fa9efe08e99ff7028dc30d86d8",
+  "generatorSha256": "9ef0e9b2b1624f581e8b5858ee8b864697062b8bd2e2834898f240eba3ed8634",
+  "operationCount": 20
 }

@@ -18,7 +18,7 @@ export class FoodsResource<Scoped extends boolean = false> {
     return this.runtime.request(operations["suggestFoodAlternatives"]!, { ...request, ...this.context }, options);
   }
   /** Contract operation: lookupFoodByBarcode. */
-  lookupBarcode(request: UserRequest<Models.LookupFoodByBarcodeRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodSearchResults>> {
+  lookupBarcode(request: UserRequest<Models.LookupFoodByBarcodeRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodSearchItem>> {
     return this.runtime.request(operations["lookupFoodByBarcode"]!, { ...request, ...this.context }, options);
   }
   /** Contract operation: getFood. */
@@ -31,6 +31,10 @@ export class RestaurantsResource<Scoped extends boolean = false> {
   /** Contract operation: searchRestaurants. */
   search(request: UserRequest<Models.SearchRestaurantsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.SearchRestaurantsResponse>> {
     return this.runtime.request(operations["searchRestaurants"]!, { ...request, ...this.context }, options);
+  }
+  /** Contract operation: getRestaurantMenuItems. */
+  getMenuItems(request: UserRequest<Models.GetRestaurantMenuItemsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.GetRestaurantMenuItemsResponse>> {
+    return this.runtime.request(operations["getRestaurantMenuItems"]!, { ...request, ...this.context }, options);
   }
   /** Contract operation: searchRestaurantMenuItems. */
   searchMenuItems(request: UserRequest<Models.SearchRestaurantMenuItemsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.SearchRestaurantMenuItemsResponse>> {
@@ -55,19 +59,23 @@ export class FoodAnalysisResource<Scoped extends boolean = false> {
 export class FoodLogsResource<Scoped extends boolean = false> {
   constructor(private readonly runtime: HttpRuntime, private readonly context: Readonly<Partial<Models.PartnerUserContext>> = {}) { Object.freeze(this); }
   /** Contract operation: createFoodLog. */
-  create(request: UserRequest<Models.CreateFoodLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodLog>> {
+  create(request: UserRequest<Models.CreateFoodLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodLog & { "location"?: string; }>> {
     return this.runtime.request(operations["createFoodLog"]!, { ...request, ...this.context }, options);
   }
   /** Contract operation: listFoodLogs. */
   list(request: UserRequest<Models.ListFoodLogsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.ListFoodLogsResponse>> {
     return this.runtime.request(operations["listFoodLogs"]!, { ...request, ...this.context }, options);
   }
+  /** Contract operation: getFoodLog. */
+  get(request: UserRequest<Models.GetFoodLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodLog>> {
+    return this.runtime.request(operations["getFoodLog"]!, { ...request, ...this.context }, options);
+  }
   /** Contract operation: updateFoodLog. */
   update(request: UserRequest<Models.UpdateFoodLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodLog>> {
     return this.runtime.request(operations["updateFoodLog"]!, { ...request, ...this.context }, options);
   }
   /** Contract operation: deleteFoodLog. */
-  delete(request: UserRequest<Models.DeleteFoodLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.DeleteFoodLogResponse>> {
+  delete(request: UserRequest<Models.DeleteFoodLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<{}>> {
     return this.runtime.request(operations["deleteFoodLog"]!, { ...request, ...this.context }, options);
   }
 }
@@ -93,16 +101,16 @@ export class SharedClient<Scoped extends boolean = false> {
   }
 }
 export class GeneratedJanuary extends SharedClient {
-  /** Server-only. Contract operation: mintClientToken. */
-  mintClientToken(request: Models.MintClientTokenRequest, options: RequestOptions = {}): Promise<WithMetadata<Models.ClientTokenResponseDto>> {
-    return this.runtime.request(operations["mintClientToken"]!, { ...request }, options);
+  /** Server-only. Contract operation: createClientToken. */
+  createClientToken(request: Models.CreateClientTokenRequest, options: RequestOptions = {}): Promise<WithMetadata<Models.ClientToken>> {
+    return this.runtime.request(operations["createClientToken"]!, { ...request }, options);
   }
-  /** Server-only. One DELETE only; revokedCount is returned from the response header. Contract operation: revokeClientTokens. */
-  revokeClientTokens(request: Models.RevokeClientTokensRequest, options: RequestOptions = {}): Promise<WithMetadata<{} & { "revokedCount"?: string; }>> {
+  /** Server-only. One revocation request; repeat until revokedCount is zero when needed. Contract operation: revokeClientTokens. */
+  revokeClientTokens(request: Models.RevokeClientTokensRequest, options: RequestOptions = {}): Promise<WithMetadata<Models.ClientTokenRevocationResult>> {
     return this.runtime.request(operations["revokeClientTokens"]!, { ...request }, options);
   }
-  /** Server-only. Contract operation: credits. */
-  credits(request: Models.CreditsRequest = {} as Models.CreditsRequest, options: RequestOptions = {}): Promise<WithMetadata<Models.CreditsResponseDto>> {
-    return this.runtime.request(operations["credits"]!, { ...request }, options);
+  /** Server-only. Contract operation: getCredits. */
+  getCredits(request: Models.GetCreditsRequest = {} as Models.GetCreditsRequest, options: RequestOptions = {}): Promise<WithMetadata<Models.CreditBalance>> {
+    return this.runtime.request(operations["getCredits"]!, { ...request }, options);
   }
 }
