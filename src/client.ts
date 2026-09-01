@@ -1,14 +1,14 @@
 import './server-only.js';
 import { GeneratedJanuary, SharedClient } from './generated/api.js';
-import type { PartnerUserContext } from './generated/models.js';
+import type { ClientToken, PartnerUserContext } from './generated/models.js';
 import { HttpRuntime } from './runtime.js';
 import { JanuaryConfigurationError, JanuaryValidationError } from './errors.js';
-import type { ClientToken, CreateClientTokenInput, JanuaryOptions } from './types.js';
+import type { CreateClientTokenInput, JanuaryOptions } from './types.js';
 import { validateCreateInput } from './validation.js';
 
 /** Trusted Node backend client. Shared operations match the January client SDK. */
 export class January extends GeneratedJanuary {
-  /** @deprecated Prototype compatibility alias. Prefer mintClientToken. */
+  /** @deprecated Prototype compatibility alias. Prefer createClientToken. */
   readonly clientTokens: { create(input: CreateClientTokenInput): Promise<ClientToken> };
 
   constructor(options: JanuaryOptions = {}) {
@@ -18,9 +18,16 @@ export class January extends GeneratedJanuary {
     this.clientTokens = Object.freeze({
       create: async (input: CreateClientTokenInput): Promise<ClientToken> => {
         validateCreateInput(input);
-        if (issuer) return issuer.create(input);
-        const token = await this.mintClientToken({ ...input, ...(input.scopes ? { scopes: [...input.scopes] } : {}) } as Parameters<January['mintClientToken']>[0], {maxRetries:0});
-        const result = { token: token.token, expiresIn: token.expiresIn };
+        const normalized = { ...input, endUserId: input.endUserId.trim(), scopes: [...input.scopes] };
+        if (issuer) return issuer.create(normalized);
+        const token = await this.createClientToken(normalized, {maxRetries:0});
+        const result: ClientToken = {
+          token: token.token,
+          expiresIn: token.expiresIn,
+          expiresAt: token.expiresAt,
+          endUserId: token.endUserId,
+          scopes: [...token.scopes],
+        };
         Object.defineProperty(result, Symbol.for('nodejs.util.inspect.custom'), { value: () => ({ ...result, token: '[REDACTED]' }) });
         return result;
       },

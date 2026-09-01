@@ -74,7 +74,7 @@ Quickstart and production E2E runners explicitly disable retries.
 
 ## Checks
 
-`npm test` exercises all 18 operations, photos, errors/retries, portion utilities,
+`npm test` exercises all 20 operations, photos, errors/retries, portion utilities,
 and examples. `npm run test:distribution` installs the packed ESM/CommonJS SDK and
 runs real loopback HTTP consumers. `npm run demo` starts the offline example flow.
 These checks are not production API tests. `npm run test:e2e` is the separate,

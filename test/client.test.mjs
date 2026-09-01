@@ -16,11 +16,14 @@ test("creates the stable token result through the demo issuer", async () => {
     }),
   });
 
-  const token = await january.clientTokens.create({ endUserId: "user-123" });
+  const token = await january.clientTokens.create({ endUserId: "user-123", scopes: ["foods:read"] });
 
   assert.deepEqual(token, {
     token: "demo-token",
     expiresIn: 300,
+    expiresAt: token.expiresAt,
+    endUserId: "user-123",
+    scopes: ["foods:read"],
   });
 });
 
@@ -56,7 +59,7 @@ test("rejects caller input without an authenticated end-user ID", async () => {
   });
 
   await assert.rejects(
-    january.clientTokens.create({ endUserId: " " }),
+    january.clientTokens.create({ endUserId: " ", scopes: ["foods:read"] }),
     JanuaryValidationError,
   );
 });
@@ -71,7 +74,7 @@ test("will not expose an sk- secret through demo mode", () => {
 test("fails clearly until either a demo or real issuer is configured", async () => {
   const january = new January();
   await assert.rejects(
-    january.clientTokens.create({ endUserId: "user-123" }),
+    january.clientTokens.create({ endUserId: "user-123", scopes: ["foods:read"] }),
     JanuaryConfigurationError,
   );
 });
@@ -109,5 +112,8 @@ test("normalizes the live HTTP token response for direct relay", async () => {
   assert.deepEqual(token, {
     token: "ct-local-123",
     expiresIn: 300,
+    expiresAt: "2026-08-23T12:05:00.000Z",
+    endUserId: "user-http",
+    scopes: ["foods:read"],
   });
 });

@@ -7,11 +7,11 @@ import { operations } from '../../dist/generated/operations.js';
 
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const operationLabels = Object.freeze([
-  'credits', 'foods.search', 'foods.autocomplete', 'foods.get', 'foods.lookupBarcode',
-  'foods.suggestAlternatives', 'restaurants.search', 'restaurants.searchMenuItems',
+  'getCredits', 'foods.search', 'foods.autocomplete', 'foods.get', 'foods.lookupBarcode',
+  'foods.suggestAlternatives', 'restaurants.search', 'restaurants.getMenuItems', 'restaurants.searchMenuItems',
   'foodAnalysis.analyzePhoto', 'foodAnalysis.analyzeDescription', 'foodAnalysis.correct',
-  'foodLogs.create', 'foodLogs.list', 'foodLogs.update', 'foodLogs.delete',
-  'glucose.predict', 'mintClientToken', 'revokeClientTokens',
+  'foodLogs.create', 'foodLogs.list', 'foodLogs.get', 'foodLogs.update', 'foodLogs.delete',
+  'glucose.predict', 'createClientToken', 'revokeClientTokens',
 ]);
 const keys = ['JANUARY_API_KEY', 'JANUARY_E2E_TIMEOUT_SECONDS', 'JANUARY_E2E_UPC', 'JANUARY_E2E_QUERY', 'JANUARY_E2E_RESTAURANT_QUERY', 'JANUARY_E2E_LATITUDE', 'JANUARY_E2E_LONGITUDE', 'JANUARY_E2E_IMAGE_PATH'];
 class CheckError extends Error {
@@ -93,9 +93,9 @@ async function imageData(path) {
   return `data:${mime};base64,${bytes.toString('base64')}`;
 }
 function selectionFrom(food) {
-  const serving = food?.servings?.find(s => Number.isSafeInteger(s.id) && s.id > 0);
-  requireCheck(Number.isSafeInteger(food?.id) && food.id > 0 && serving, 'usable_food_serving_missing');
-  return { id: food.id, serving: { id: serving.id, quantity: 1 } };
+  const serving = food?.servings?.find(s => typeof s.id === 'string' && s.id);
+  requireCheck(typeof food?.id === 'string' && food.id && serving, 'usable_food_serving_missing');
+  return { foodId: food.id, servingId: serving.id, quantity: 1 };
 }
 
 /** Explicit invocation only. Each execution creates its own non-overridable user. */
@@ -117,6 +117,7 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
   let logDiscoveryNeeded = false;
   let selected;
   let foodId;
+  let restaurantId;
   let photo;
   let description;
   let token;
@@ -147,14 +148,14 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
     return row.status === 'PASS' ? result : undefined;
   }
   try {
-    await step('credits', async options => {
-      const balance = await client.credits({}, options);
+    await step('getCredits', async options => {
+      const balance = await client.getCredits({}, options);
       requireCheck(typeof balance.plan === 'string' && Number.isFinite(balance.usedCredits) && typeof balance.resetsAt === 'string');
-      requireCheck(balance.remainingCredits === undefined || Number.isFinite(balance.remainingCredits)); return balance;
+      requireCheck(balance.remainingCredits === null || Number.isFinite(balance.remainingCredits)); return balance;
     });
     await step('foods.search', async options => {
       const result = await user.foods.search({ query: config.query, limit: 5 }, options);
-      const food = result.items?.find(item => Number.isSafeInteger(item.id) && item.id > 0);
+      const food = result.items?.find(item => typeof item.id === 'string' && item.id);
       requireCheck(food, 'search_returned_no_foods'); foodId = food.id; return result;
     });
     await step('foods.autocomplete', async options => {
@@ -166,17 +167,27 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       requireCheck(result.id === foodId); selected = selectionFrom(result); return result;
     }, { dependencies: ['foods.search'] });
     await step('foods.lookupBarcode', async options => {
-      const result = await user.foods.lookupBarcode({ upc: config.upc }, options);
-      requireCheck(Array.isArray(result.items) && result.items.length > 0, 'barcode_returned_no_foods'); return result;
+      const result = await user.foods.lookupBarcode({ barcode: config.upc }, options);
+      requireCheck(typeof result.id === 'string' && result.id, 'barcode_returned_no_food'); return result;
     });
     await step('foods.suggestAlternatives', async options => {
       const result = await user.foods.suggestAlternatives({ foodId, dietRestrictions: ['gluten'], dietPreferences: ['vegetarian'] }, options);
       requireCheck(Array.isArray(result.alternatives)); return result;
     }, { dependencies: ['foods.search'] });
     const restaurantInput = { query: config.restaurantQuery, latitude: config.latitude, longitude: config.longitude, limit: 5 };
-    for (const method of ['search', 'searchMenuItems']) await step(`restaurants.${method}`, async options => {
-      const result = await user.restaurants[method](restaurantInput, options);
-      requireCheck(Array.isArray(result.items) && Number.isFinite(result.totalCount)); return result;
+    await step('restaurants.search', async options => {
+      const result = await user.restaurants.search(restaurantInput, options);
+      requireCheck(Array.isArray(result.items));
+      restaurantId = result.items.find(item => typeof item.id === 'string' && item.id)?.id;
+      requireCheck(restaurantId, 'restaurant_search_returned_no_restaurants'); return result;
+    });
+    await step('restaurants.getMenuItems', async options => {
+      const result = await user.restaurants.getMenuItems({ restaurantId, limit: 5 }, options);
+      requireCheck(Array.isArray(result.items)); return result;
+    }, { dependencies: ['restaurants.search'] });
+    await step('restaurants.searchMenuItems', async options => {
+      const result = await user.restaurants.searchMenuItems(restaurantInput, options);
+      requireCheck(Array.isArray(result.items)); return result;
     });
     await step('foodAnalysis.analyzePhoto', async options => {
       photo = await user.foodAnalysis.analyzePhoto({ image: await imageData(config.imagePath) }, options);
@@ -188,23 +199,27 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
     });
     const source = rows.get('foodAnalysis.analyzePhoto')?.status === 'PASS' ? photo : rows.get('foodAnalysis.analyzeDescription')?.status === 'PASS' ? description : undefined;
     await step('foodAnalysis.correct', async options => {
-      const result = await user.foodAnalysis.correct({ ...(source.mealName ? { mealName: source.mealName } : {}), detections: source.detections, userInput: 'Keep the same foods and set each serving quantity to one.' }, options);
+      const result = await user.foodAnalysis.correct({ analysis: source, instruction: 'Keep the same foods and set each serving quantity to one.' }, options);
       requireCheck(Array.isArray(result.detections) && result.detections.length > 0); return result;
     }, source ? {} : { reason: 'analysis_dependency_failed' });
     await step('foodLogs.create', async options => {
       createAttempted = true; logDiscoveryNeeded = true;
-      const result = await user.foodLogs.create({ foods: [selected], timestampUtc: timestamp, name: 'SDK E2E meal' }, options);
+      const result = await user.foodLogs.create({ foods: [selected], eatenAt: timestamp, name: 'SDK E2E meal' }, options);
       if (typeof result.id === 'string' && result.id) { ownLogs.add(result.id); createdLogId = result.id; logDiscoveryNeeded = false; }
-      requireCheck(createdLogId && result.foods?.some(food => food.id === selected.id), 'created_log_invalid'); return result;
+      requireCheck(createdLogId && result.foods?.some(food => food.foodId === selected.foodId), 'created_log_invalid'); return result;
     }, { dependencies: ['foods.get'] });
     await step('foodLogs.list', async options => {
-      const result = await user.foodLogs.list({ start: day, end: day }, options);
+      const result = await user.foodLogs.list({ startDate: day, endDate: day, timezone: 'UTC' }, options);
       requireCheck(Array.isArray(result.items));
       if (createAttempted) for (const log of result.items) if (typeof log.id === 'string' && log.id) ownLogs.add(log.id);
       if (createdLogId) requireCheck(result.items.some(log => log.id === createdLogId), 'created_log_not_listed');
       if (ownLogs.size) logDiscoveryNeeded = false;
       return result;
     });
+    await step('foodLogs.get', async options => {
+      const result = await user.foodLogs.get({ logId: createdLogId }, options);
+      requireCheck(result.id === createdLogId); return result;
+    }, { dependencies: ['foodLogs.create'] });
     await step('foodLogs.update', async options => {
       const result = await user.foodLogs.update({ logId: createdLogId, name: 'SDK E2E meal updated' }, options);
       requireCheck(result.id === createdLogId && result.name === 'SDK E2E meal updated'); return result;
@@ -212,13 +227,13 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
     await step('glucose.predict', async options => {
       const result = await user.glucose.predict({
         userProfile: { age: 30, sex: 'male', height: { value: 175, unit: 'cm' }, weight: { value: 75, unit: 'kg' } },
-        foods: [selected], startTime: new Date(timestamp),
+        timezone: 'UTC', foods: [selected], startTime: new Date(timestamp),
       }, options);
-      requireCheck(Array.isArray(result.prediction) && result.prediction.length > 0 && typeof result.impact === 'string'); return result;
+      requireCheck(Array.isArray(result.points) && result.points.length > 0 && typeof result.impact === 'string'); return result;
     }, { dependencies: ['foods.get'] });
-    await step('mintClientToken', async options => {
+    await step('createClientToken', async options => {
       mintAttempted = true;
-      token = await client.mintClientToken({ endUserId, scopes: ['foods:read'], ttlSeconds: 300 }, options);
+      token = await client.createClientToken({ endUserId, scopes: ['foods:read'], ttlSeconds: 300 }, options);
       if (typeof token.token === 'string') secrets.push(token.token);
       requireCheck(typeof token.token === 'string' && token.token.startsWith('ct-') && token.endUserId === endUserId && token.scopes?.length === 1 && token.scopes[0] === 'foods:read' && Number.isFinite(token.expiresIn) && token.expiresIn > 0 && token.expiresIn <= 300 && Number.isFinite(Date.parse(token.expiresAt)), 'client_token_response_invalid');
       return token;
@@ -232,14 +247,14 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       options.onResponse({ status: response.status, requestId: response.headers.get('x-request-id') });
       requireCheck(response.ok, 'client_token_request_failed');
       const result = await response.json(); requireCheck(Array.isArray(result.items), 'client_token_response_invalid');
-    }, { dependencies: ['mintClientToken'], target: extra });
+    }, { dependencies: ['createClientToken'], target: extra });
   } catch {
     // Unexpected workflow failures never expose a response, exception, or credential.
     cleanup.push({ operation: 'workflow', status: 'FAIL', code: 'workflow_failed', durationMs: 0 });
   } finally {
     if (logDiscoveryNeeded) {
       await step('cleanup.discoverLogs', async options => {
-        const result = await user.foodLogs.list({ start: day, end: new Date().toISOString().slice(0, 10) }, options);
+        const result = await user.foodLogs.list({ startDate: day, endDate: new Date().toISOString().slice(0, 10), timezone: 'UTC' }, options);
         requireCheck(Array.isArray(result.items), 'cleanup_discovery_invalid');
         for (const log of result.items) if (typeof log.id === 'string' && log.id) ownLogs.add(log.id);
         // A timed-out create may still finish later: an empty list cannot prove cleanup.
@@ -252,14 +267,14 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       const label = index === 0 ? 'foodLogs.delete' : 'cleanup.deleteLog';
       await step(label, async options => {
         const result = await user.foodLogs.delete({ logId }, options);
-        requireCheck(result.status === 'deleted', 'delete_not_confirmed'); ownLogs.delete(logId); return result;
+        requireCheck(result.$metadata.status === 204, 'delete_not_confirmed'); ownLogs.delete(logId); return result;
       }, index === 0 ? {} : { target: cleanup });
     }
     if (logIds.length) cleanup.push({ operation: 'cleanup.logs', status: ownLogs.size ? 'FAIL' : 'PASS', ...(ownLogs.size ? { code: 'log_cleanup_failed' } : {}), durationMs: 0 });
     if (mintAttempted) {
       await step('revokeClientTokens', async options => {
         const result = await client.revokeClientTokens({ endUserId }, options);
-        requireCheck(result.$metadata.status === 204 && /^\d+$/.test(result.revokedCount ?? result.$metadata.headers['x-revoked-count'] ?? ''), 'revoke_not_confirmed');
+        requireCheck(result.$metadata.status === 200 && Number.isInteger(result.revokedCount) && result.revokedCount >= 0, 'revoke_not_confirmed');
         return result;
       });
       cleanup.push({ operation: 'cleanup.tokens', status: rows.get('revokeClientTokens')?.status === 'PASS' ? 'PASS' : 'FAIL', ...(rows.get('revokeClientTokens')?.status === 'PASS' ? {} : { code: 'token_cleanup_failed' }), durationMs: 0 });
@@ -278,7 +293,7 @@ export async function main({ root = sdkRoot, env = process.env, emit = line => c
   catch (error) {
     const code = error instanceof CheckError ? error.code : 'configuration_error';
     emit(`configuration NOT_RUN code=${code}`);
-    const report = { language: 'node', status: 'NOT_RUN', code, counts: { total: 18, passed: 0, failed: 0, blocked: 18 }, results: operationLabels.map(operation => ({ operation, status: 'BLOCKED', code, durationMs: 0 })), cleanup: [], extra: [] };
+    const report = { language: 'node', status: 'NOT_RUN', code, counts: { total: 20, passed: 0, failed: 0, blocked: 20 }, results: operationLabels.map(operation => ({ operation, status: 'BLOCKED', code, durationMs: 0 })), cleanup: [], extra: [] };
     await saveReport(root, report);
     return { exitCode: 2, report };
   }

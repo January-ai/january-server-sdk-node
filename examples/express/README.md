@@ -47,7 +47,7 @@ Expected HTTP 200 body (token value is illustrative):
 {"token":"ct-example-do-not-use","expiresIn":1800}
 ```
 
-The route uses `mintClientToken` with server-selected `foods:read` scope and a
+The route uses `createClientToken` with server-selected `foods:read` scope and a
 1,800-second lifetime. It maps the SDK result to the client token-provider shape
 `{token, expiresIn}`. The caller cannot override identity or scopes in a JSON body.
 Missing demo authentication returns HTTP 401; upstream issuance failure returns

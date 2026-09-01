@@ -21,7 +21,7 @@ For Cloudflare Workers, use the [Worker example](examples/cloudflare/README.md) 
 | Server API key (`sk-…`) | Authenticating this backend SDK |
 | Client token (`ct-…`) | Short-lived, end-user credentials for mobile/web client SDKs; not a server SDK key |
 
-Client tokens are optional. Only if your backend will issue them to client apps, open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens) and select **Enable client tokens**, then use `mintClientToken` on your backend. This is **not required for the server food-search quick start**. Do not put a server key into a client application.
+Client tokens are optional. Only if your backend will issue them to client apps, open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens) and select **Enable client tokens**, then use `createClientToken` on your backend. This is **not required for the server food-search quick start**. Do not put a server key into a client application.
 
 ## Install
 
@@ -173,21 +173,21 @@ Shared resources are available on the root client and on `january.forUser(...)`.
 | Resource | Methods |
 | --- | --- |
 | `foods` | `search`, `autocomplete`, `suggestAlternatives`, `lookupBarcode`, `get` |
-| `restaurants` | `search`, `searchMenuItems` |
+| `restaurants` | `search`, `getMenuItems`, `searchMenuItems` |
 | `foodAnalysis` | `analyzePhoto`, `analyzeDescription`, `correct` |
-| `foodLogs` | `list`, `create`, `update`, `delete` |
+| `foodLogs` | `list`, `get`, `create`, `update`, `delete` |
 | `glucose` | `predict` |
 
 These fragments assume `user` from the quick start. Each awaited call uses the API:
 
 ```ts
-const foods = await user.foods.lookupBarcode({ upc: '049000006346' });
+const food = await user.foods.lookupBarcode({ barcode: '049000006346' });
 const analysis = await user.foodAnalysis.analyzeDescription({
   query: 'two eggs and toast',
 });
 ```
 
-Use numeric `foodId`, string `upc`, `query` for description analysis, an image URL or data URI for photo analysis, and string `logId` for food logs. Menu-item search uses location and query, not a restaurant-ID filter. Typed signatures and model definitions are included in the package.
+Use string `foodId`, string `barcode`, `query` for description analysis, an image URL or data URI for photo analysis, and string `logId` for food logs. Use `restaurants.getMenuItems` with a restaurant ID, or `searchMenuItems` with a location and query. Typed signatures and model definitions are included in the package.
 
 ### Serving and quantity calculations
 
@@ -211,12 +211,12 @@ All 16 nutrients preserve units, missing measurements, and real zero values. Inp
 
 ## Server-only operations
 
-Root methods are `mintClientToken`, `revokeClientTokens`, and `credits`. They are not available on a scoped user view. Token creation requires client tokens to be enabled for the account.
+Root methods are `createClientToken`, `revokeClientTokens`, and `getCredits`. They are not available on a scoped user view. Token creation requires client tokens to be enabled for the account.
 
 These are independent fragments assuming `january` and an `authenticatedUserId` from your server session. Do not run revocation as part of normal token creation:
 
 ```ts
-const token = await january.mintClientToken({
+const token = await january.createClientToken({
   endUserId: authenticatedUserId,
   scopes: ['foods:read'],
   ttlSeconds: 1800,
@@ -228,15 +228,15 @@ const token = await january.mintClientToken({
 const revoked = await january.revokeClientTokens({
   endUserId: authenticatedUserId,
 });
-// revoked.revokedCount is the raw X-Revoked-Count string when supplied.
-// revoked.$metadata.status is 204.
+// revoked.revokedCount is the number of live tokens revoked.
+// revoked.$metadata.status is 200.
 ```
 
 ```ts
-const balance = await january.credits();
+const balance = await january.getCredits();
 ```
 
-Revocation sends one DELETE with the `end_user_id` query parameter. There is no automatic retry, revoke-all helper, or loop. Keep server keys on trusted backends; never pass them to clients.
+Revocation sends one POST with `end_user_id` in the JSON body. There is no automatic retry, revoke-all helper, or loop. Keep server keys on trusted backends; never pass them to clients.
 
 ## Configuration and errors
 
@@ -273,10 +273,10 @@ The example prints credential-redacted `status`, `code`, and `requestId` for API
 | --- | --- |
 | Missing `.env` file or API key | Create `.env` in the application directory, set `JANUARY_API_KEY`, and run with `node --env-file=.env`. An empty key exits before a request. |
 | Configuration error before a request | Use the full server API key, not a `ct-` client token. |
-| `JanuaryValidationError`; no HTTP status | Correct missing or invalid method arguments, such as an invalid `upc`. No request was sent; do not treat this as an authentication or server failure. |
+| `JanuaryValidationError`; no HTTP status | Correct missing or invalid method arguments, such as an invalid `barcode`. No request was sent; do not treat this as an authentication or server failure. |
 | HTTP 401 | Confirm the key is complete, active, and from the intended organization. Replace a revoked key through the dashboard. |
 | HTTP 403 | Check account access and the error code. Token minting additionally needs **Enable client tokens**; food search does not. |
-| `credit_limit_exceeded` (including HTTP 429) | Check `credits()` and [Billing](https://dashboard.january.ai/billing). Waiting for a rate-limit backoff does not replenish credits. |
+| `credit_limit_exceeded` (including HTTP 429) | Check `getCredits()` and [Billing](https://dashboard.january.ai/billing). Waiting for a rate-limit backoff does not replenish credits. |
 | HTTP 429 / `rate_limited` | Default clients retry within configured bounds. The quickstart and production runner explicitly disable retries. |
 | Connection failure, timeout, or HTTP 5xx | Check connectivity/service availability and your configured timeout. Retry only when safe; a timed-out write may already have succeeded. |
 | `invalid_response` | Preserve the HTTP status and request ID and contact support; do not share private response bodies. |
@@ -295,7 +295,7 @@ To run the repository examples and tests, follow the [contributor setup](CONTRIB
 | Installed package checks | `npm run test:distribution` | Loopback fixtures only |
 | Full live E2E | `npm run test:e2e` | Explicit opt-in; billable calls and synthetic writes |
 
-The full live workflow is not the quick start. It exercises all 18 operations, including token creation/revocation and temporary food-log creation/deletion. Read [live testing and cleanup](docs/live-testing.md) before running it. Default tests and CI never load production keys.
+The full live workflow is not the quick start. It exercises all 20 operations, including token creation/revocation and temporary food-log creation/deletion. Read [live testing and cleanup](docs/live-testing.md) before running it. Default tests and CI never load production keys.
 
 ## Distribution and releases
 

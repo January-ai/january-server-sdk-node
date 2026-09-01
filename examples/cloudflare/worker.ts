@@ -23,7 +23,7 @@ export default {
       });
       // Ignore request bodies: identity comes from authentication, permissions
       // and lifetime are server-selected. Never forward caller-chosen scopes.
-      const { token, expiresIn } = await january.mintClientToken({
+      const { token, expiresIn } = await january.createClientToken({
         endUserId,
         scopes: ["foods:read"],
         ttlSeconds: 1800,

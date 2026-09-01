@@ -30,8 +30,7 @@ function reply(response, fixture) {
 }
 
 test('default Fetch preserves its global receiver in Worker-compatible runtimes', async t => {
-  const fixture = fixtures.operations.find(item => item.operationId === 'getCreditBalance');
-  const credit = fixture ?? fixtures.operations.find(item => item.publicMethod === 'credits');
+  const credit = fixtures.operations.find(item => item.operationId === 'getCredits');
   let calls = 0;
   t.mock.method(globalThis, 'fetch', async function (url, init) {
     assert.equal(this, globalThis);
@@ -41,7 +40,7 @@ test('default Fetch preserves its global receiver in Worker-compatible runtimes'
     return new Response(JSON.stringify(credit.response.body), { status: credit.response.status });
   });
   const client = new January({ secretKey: 'sk-runtime-fixture' });
-  await client.credits();
+  await client.getCredits();
   assert.equal(calls, 1);
 });
 
@@ -55,11 +54,11 @@ test('redirects are rejected without forwarding credentials or following Locatio
     response.writeHead(302, { location: '/redirect-target' });
     response.end('Do not follow this response');
   });
-  await assert.rejects(() => client.credits(), error => error instanceof JanuaryTransportError && error.code === 'connection');
+  await assert.rejects(() => client.getCredits(), error => error instanceof JanuaryTransportError && error.code === 'connection');
   assert.equal(calls, 1);
 });
 
-test('all 18 official fixtures serialize through a real local HTTP service', async t => {
+test('all 20 official fixtures serialize through a real local HTTP service', async t => {
   for (const f of fixtures.operations) await t.test(f.operationId, async t => {
     let seen;
     let calls = 0;
@@ -88,31 +87,35 @@ test('all 18 official fixtures serialize through a real local HTTP service', asy
     assert.equal(result.$metadata.requestId, f.response.headers['x-request-id']);
     assert.ok(!Object.keys(result).includes('$metadata'));
     if (f.operationId === 'revokeClientTokens') {
-      assert.equal(result.revokedCount, '3');
-      assert.equal(result.$metadata.headers['x-revoked-count'], '3');
+      assert.equal(result.revokedCount, f.response.body.revoked_count);
     } else if (f.operationId === 'predictGlucose') assert.equal(result.impact, f.response.body.impact_score);
-    else if (f.operationId === 'getFood') assert.equal(result.nutrients.calories.value, f.response.body.nutrients.calories.value);
-    else {
+    else if (f.operationId === 'deleteFoodLog') assert.deepEqual(result, {});
+    else if (['searchFoods', 'autocompleteFoods'].includes(f.operationId)) {
+      assert.equal(result.items[0].id, f.response.body.items[0].id);
+      assert.deepEqual(result.items[0].nutrients, toPublic(f.response.body.items[0].nutrients));
+      assert.equal(result.items[0].photoUrl, f.response.body.items[0].image_url);
+    } else if (['lookupFoodByBarcode', 'getFood'].includes(f.operationId)) {
+      assert.equal(result.id, f.response.body.id);
+      assert.deepEqual(result.nutrients, toPublic(f.response.body.nutrients));
+      assert.equal(result.photoUrl, f.response.body.image_url);
+    } else {
       const expected = toPublic(f.response.body);
-      if (['searchFoods', 'lookupFoodByBarcode'].includes(f.operationId)) {
-        assert.equal(result.totalCount, expected.totalCount);
-        assert.equal(result.items[0].calories, expected.items[0].nutrients.calories.value);
-      } else if (f.operationId === 'autocompleteFoods') assert.equal(result.items[0].id, expected.items[0].id);
-      else assert.deepEqual(result, expected);
+      assert.deepEqual(result, expected);
     }
   });
 });
 
 test('server operations are root-only; shared views are immutable and isolate concurrent users', async t => {
   const users = [];
-  const f = fixtures.operations[0];
-  const client = await mock(t, (req, res) => { users.push(req.headers['x-end-user-id']); reply(res, f.response); });
+  const f = fixtures.operations.find(item => item.operationId === 'listFoodLogs');
+  const client = await mock(t, (req, res) => { users.push(req.headers['january-end-user-id']); reply(res, f.response); });
   const context = { endUserId: 'first' };
   const first = client.forUser(context); context.endUserId = 'modified';
   const second = client.forUser('second');
-  await Promise.all([first.foods.search({ query: 'a', endUserId: 'override' }), second.foods.search({ query: 'b' }), client.foods.search({ query: 'c', endUserId: 'root' })]);
+  const range = { startDate: '2024-09-13', endDate: '2024-09-13', timezone: 'UTC' };
+  await Promise.all([first.foodLogs.list({ ...range, endUserId: 'override' }), second.foodLogs.list(range), client.foodLogs.list({ ...range, endUserId: 'root' })]);
   assert.deepEqual(users.sort(), ['first', 'root', 'second']);
-  for (const name of ['mintClientToken', 'revokeClientTokens', 'credits', 'clientTokens']) assert.equal(first[name], undefined);
+  for (const name of ['createClientToken', 'revokeClientTokens', 'getCredits', 'clientTokens']) assert.equal(first[name], undefined);
   assert.ok(Object.isFrozen(first) && Object.isFrozen(first.context) && Object.isFrozen(first.foods));
   assert.throws(() => { first.context.endUserId = 'mutation'; }, TypeError);
   assert.ok(!inspect(client, { depth: 10 }).includes('sk-local-only'));
@@ -124,26 +127,26 @@ test('query/path escaping and barcode leading zeroes are preserved', async t => 
   const client = await mock(t, (req, res) => {
     requests.push(req.url);
     if (req.method === 'GET') {
-      reply(res, { status: 200, body: { total_count: 0, items: [] } });
+      reply(res, fixtures.operations.find(f => f.operationId === 'lookupFoodByBarcode').response);
     } else if (req.url.split('?')[0] === revokeFixture.path) {
       reply(res, revokeFixture.response);
     } else {
-      reply(res, { status: 200, body: { status: 'deleted' } });
+      reply(res, { status: 204, body: null });
     }
   });
   await client.foodLogs.delete({ endUserId: 'user', logId: 'a/b?c #%' });
-  await client.foods.lookupBarcode({ upc: '00123456' });
+  await client.foods.lookupBarcode({ barcode: '00123456' });
   await client.revokeClientTokens({ endUserId: 'id /+?&=#%' });
   assert.ok(requests[0].includes('a%2Fb%3Fc%20%23%25'));
   assert.ok(requests[1].endsWith('/00123456'));
-  assert.equal(new URL(requests[2], 'http://localhost').searchParams.get('end_user_id'), 'id /+?&=#%');
+  assert.equal(requests[2], revokeFixture.path);
 });
 
 test('official errors preserve stable fields and never trigger automatic retries', async t => {
   for (const f of fixtures.errors) await t.test(String(f.status) + ':' + f.body.code, async t => {
     let count = 0;
     const client = await mock(t, (_, res) => { count++; reply(res, f); });
-    await assert.rejects(client.credits(), error => {
+    await assert.rejects(client.getCredits(), error => {
       assert.ok(error instanceof JanuaryApiError);
       assert.equal(error.status, f.status); assert.equal(error.code, f.body.code);
       assert.equal(error.docsUrl, f.body.docs_url); assert.equal(error.requestId, f.headers['x-request-id']);
@@ -159,39 +162,39 @@ test('redacts echoed credentials, user content, token inspection, and unsafe hea
     assert.ok(!inspect(e).includes('sk-local-only') && !inspect(e).includes('private meal description') && !inspect(e).includes('ct-dangerous'));
     assert.equal(e.headers['set-cookie'], undefined); return true;
   });
-  const token = fixtures.operations.find(f => f.operationId === 'mintClientToken');
+  const token = fixtures.operations.find(f => f.operationId === 'createClientToken');
   const issuer = await mock(t, (_, res) => reply(res, token.response));
-  const result = await issuer.mintClientToken(inputFor(token));
+  const result = await issuer.createClientToken(inputFor(token));
   assert.equal(result.token, token.response.body.token);
   assert.ok(!inspect(result).includes(result.token));
 });
 
 test('timeouts include body reading; signals cancel; misbehaving injected fetch is bounded', async t => {
   const client = await mock(t, (_, res) => { res.writeHead(200); res.write('{'); });
-  await assert.rejects(client.credits({}, { timeoutMs: 25 }), e => e instanceof JanuaryTransportError && e.code === 'timeout');
+  await assert.rejects(client.getCredits({}, { timeoutMs: 25 }), e => e instanceof JanuaryTransportError && e.code === 'timeout');
   const abort = new AbortController();
-  const call = client.credits({}, { signal: abort.signal }); abort.abort();
+  const call = client.getCredits({}, { signal: abort.signal }); abort.abort();
   await assert.rejects(call, e => e.code === 'canceled');
   let count = 0;
   const custom = new January({ secretKey: 'sk-test', fetch: async () => { count++; return new Promise(() => {}); } });
-  await assert.rejects(custom.credits({}, { timeoutMs: 20 }), e => e.code === 'timeout');
+  await assert.rejects(custom.getCredits({}, { timeoutMs: 20 }), e => e.code === 'timeout');
   const preAborted = AbortSignal.abort();
-  await assert.rejects(custom.credits({ signal: preAborted }), e => e.code === 'canceled');
+  await assert.rejects(custom.getCredits({ signal: preAborted }), e => e.code === 'canceled');
   assert.equal(count, 1);
 });
 
 test('unknown enum/fields, uncapped credits, omitted/null values, and invalid input', async t => {
   const f = fixtures.uncappedCredits;
   const client = await mock(t, (_, res) => reply(res, { status: 200, body: f }));
-  const balance = await client.credits();
-  assert.equal(balance.remainingCredits, undefined);
+  const balance = await client.getCredits();
+  assert.equal(balance.remainingCredits, null);
   assert.equal(decode('future-value', { type: 'string', enum: ['known'] }), 'future-value');
   assert.deepEqual(decode({ known_field: null, future_field: 123 }, { properties: { known_field: { publicName: 'knownField', nullable: true } } }), { knownField: null, future_field: 123 });
   const schema = { type: 'object', properties: { name: { type: 'string', nullable: true } } };
   assert.deepEqual(encode({}, schema), {}); assert.deepEqual(encode({ name: null }, schema), { name: null });
-  await assert.rejects(client.foods.get({ foodId: NaN }), JanuaryValidationError);
-  await assert.rejects(client.foods.lookupBarcode({ upc: 'invalid' }), JanuaryValidationError);
-  await assert.rejects(client.mintClientToken({ endUserId: '', ttlSeconds: 1 }), JanuaryValidationError);
+  await assert.rejects(client.foods.get({ foodId: '' }), JanuaryValidationError);
+  await assert.rejects(client.foods.lookupBarcode({ barcode: 'invalid' }), JanuaryValidationError);
+  await assert.rejects(client.createClientToken({ endUserId: '', scopes: ['foods:read'], ttlSeconds: 1 }), JanuaryValidationError);
   assert.throws(() => new January({ secretKey: 'ct-not-a-server-key' }), JanuaryConfigurationError);
 });
 

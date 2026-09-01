@@ -35,14 +35,14 @@ run(join(consumer, 'node_modules/.bin/tsc'), ['-p', 'tsconfig.json'], consumer);
 run(resolve('node_modules/.bin/tsc'), ['--ignoreConfig', '--strict', '--exactOptionalPropertyTypes', '--target', 'ES2022', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--outDir', 'compiled', 'esm.mts', 'commonjs.cts'], consumer);
 const fixtures = JSON.parse(await readFile('test/fixtures/contract.json', 'utf8'));
 let count = 0;
-let deletes = 0;
+let revocations = 0;
 const server = createServer(async (req, res) => {
   for await (const chunk of req) void chunk;
   const path = new URL(req.url, 'http://localhost').pathname;
   const fixture = fixtures.operations.find(f => f.path === path && f.method === req.method);
   if (!fixture) { res.writeHead(404); res.end(); return; }
   assert.equal(req.headers.authorization, 'Bearer sk-local-only');
-  count++; if (req.method === 'DELETE') deletes++;
+  count++; if (fixture.operationId === 'revokeClientTokens') revocations++;
   res.writeHead(fixture.response.status, { 'content-type': 'application/json', ...fixture.response.headers });
   res.end(fixture.response.status === 204 ? undefined : JSON.stringify(fixture.response.body));
 });
@@ -53,7 +53,7 @@ try {
     const module = await import(pathToFileURL(join(consumer, 'compiled', file)));
     assert.equal(await module.flow(baseUrl), 6);
   }
-  assert.equal(count, 12); assert.equal(deletes, 2);
+  assert.equal(count, 12); assert.equal(revocations, 2);
   const search = fixtures.operations.find(f => f.operationId === 'searchFoods');
   await writeFile(join(consumer, '.env'), 'JANUARY_API_KEY=sk-local-only\n', { mode: 0o600 });
   for (const script of ['quickstart.mjs', 'dist/quickstart.mjs']) {
@@ -65,7 +65,7 @@ try {
     assert.equal(quickstart.stdout, `Found ${search.response.body.items.length} foods in this response.\nFirst food: ${search.response.body.items[0].name}\n`);
     assert.equal(quickstart.stderr, '');
   }
-  assert.equal(count, 14); assert.equal(deletes, 2);
+  assert.equal(count, 14); assert.equal(revocations, 2);
   // The optional native-image peer is not installed in this consumer. Both
   // package formats must still load the helper and forward URLs unchanged.
   for (const loader of ["const {prepareImage}=await import('@january-ai/server/images');", "const {prepareImage}=require('@january-ai/server/images');"]) {

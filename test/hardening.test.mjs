@@ -27,9 +27,9 @@ test('bounded code-aware retries and single-request operations',async t => {
     const january=new January({secretKey:'sk-test',...(maxRetries===undefined?{}:{maxRetries}),fetch:async()=>{
       calls++;return new Response(JSON.stringify({code,message:'wait'}),{status:429,headers:{'retry-after':'0'}});
     }});
-    await assert.rejects(january.credits(),JanuaryApiError);assert.equal(calls,want);
+    await assert.rejects(january.getCredits(),JanuaryApiError);assert.equal(calls,want);
   });
-  for (const op of [operations.mintClientToken,operations.createFoodLog,operations.revokeClientTokens]) {
+  for (const op of [operations.createClientToken,operations.createFoodLog,operations.revokeClientTokens]) {
     assert.equal(retryDelay(op,new JanuaryApiError('server',503),0,0),undefined);
   }
   assert.equal(retryDelay(operations.revokeClientTokens,new RateLimitError('rate',429),0,0),undefined);
@@ -48,14 +48,14 @@ test('retry budget refusal, deadline, cancellation and response failures',async(
   await assert.rejects(waiting,e=>e instanceof JanuaryTransportError&&e.code==='canceled');
   let calls=0;
   const client=new January({secretKey:'sk-test',timeoutMs:50,fetch:async()=>{calls++;return new Response('{"code":"rate_limited"}',{status:429,headers:{'retry-after':'1'}});}});
-  await assert.rejects(client.credits(),e=>e instanceof RateLimitError&&/deadline/.test(e.retryNote));assert.equal(calls,1);
+  await assert.rejects(client.getCredits(),e=>e instanceof RateLimitError&&/deadline/.test(e.retryNote));assert.equal(calls,1);
   const malformed=new January({secretKey:'sk-test',fetch:async()=>new Response('not json')});
-  await assert.rejects(malformed.credits(),e=>e instanceof JanuaryResponseError&&!(e instanceof JanuaryApiError));
+  await assert.rejects(malformed.getCredits(),e=>e instanceof JanuaryResponseError&&!(e instanceof JanuaryApiError));
 });
 
 test('error messages are bounded, credentials and body are redacted',async()=>{
   const client=new January({secretKey:'sk-private',fetch:async()=>new Response(JSON.stringify({code:'forbidden',message:'sk-private '.repeat(100)}),{status:403,headers:{'x-request-id':'sk-private'}})});
-  await assert.rejects(client.credits(),e=>{
+  await assert.rejects(client.getCredits(),e=>{
     assert.ok(e instanceof PermissionDeniedError);assert.ok(e.message.length<240);
     assert.ok(!e.body.includes('sk-private'));assert.equal(e.requestId,'[REDACTED]');return true;
   });

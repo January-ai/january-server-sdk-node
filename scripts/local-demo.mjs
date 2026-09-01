@@ -11,7 +11,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const key = 'sk-node-framework-fixture-only';
 const token = 'ct-node-framework-fixture-only';
 const fixtures = JSON.parse(await readFile(join(root, 'test/fixtures/contract.json'), 'utf8'));
-const mint = fixtures.operations.find(item => item.operationId === 'mintClientToken');
+const mint = fixtures.operations.find(item => item.operationId === 'createClientToken');
 const search = fixtures.operations.find(item => item.operationId === 'searchFoods');
 const requests = [];
 let fixtureError;

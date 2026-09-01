@@ -37,7 +37,7 @@ test('invalid method input is a documented local validation error, not an API fa
     fetch: async () => { requests++; throw new Error('Unexpected HTTP request'); },
   });
   const user = client.forUser({ endUserId: 'validation-fixture' });
-  await assert.rejects(() => user.foods.lookupBarcode({ upc: 'invalid' }), JanuaryValidationError);
+  await assert.rejects(() => user.foods.lookupBarcode({ barcode: 'invalid' }), JanuaryValidationError);
   assert.equal(requests, 0);
   assert.match(source, /error instanceof JanuaryValidationError/);
   const guide = await readFile(new URL('../docs/live-testing.md', import.meta.url), 'utf8');
@@ -101,13 +101,13 @@ test('quick start runs one food search using public package exports and prints a
   assert.equal(url.pathname, fixture.path);
   assert.equal(url.searchParams.get('query'), 'banana');
   assert.equal(request.headers.authorization, `Bearer ${key}`);
-  assert.equal(request.headers['x-end-user-id'], 'january-quickstart');
+  assert.equal(request.headers['x-end-user-id'], undefined);
   // Food search has no timezone header in the contract, even on a scoped view.
   assert.equal(request.headers['x-end-user-timezone'], undefined);
 });
 
 test('quick start handles an empty search', async t => {
-  const { requests, baseUrl } = await localService(t, { status: 200, body: { total_count: 0, items: [] } });
+  const { requests, baseUrl } = await localService(t, { status: 200, body: { items: [] } });
   const result = await runExample(baseUrl);
   assert.equal(result.code, 0, result.stderr);
   assert.equal(result.stdout, 'Found 0 foods in this response.\nNo foods found.\n');

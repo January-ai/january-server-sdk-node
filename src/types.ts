@@ -1,6 +1,8 @@
+import type { ClientToken } from "./generated/models.js";
+
 export const ClientScope = {
   foodsRead: "foods:read",
-  foodScansWrite: "food_scans:write",
+  foodAnalysisWrite: "food_analysis:write",
   foodLogsRead: "food_logs:read",
   foodLogsWrite: "food_logs:write",
   glucoseRead: "glucose:read",
@@ -10,14 +12,9 @@ export type ClientScope = typeof ClientScope[keyof typeof ClientScope];
 
 export interface CreateClientTokenInput {
   readonly endUserId: string;
-  readonly scopes?: readonly ClientScope[];
+  readonly scopes: readonly ClientScope[];
   /** Token lifetime in seconds. January accepts 300 through 7200. */
   readonly ttlSeconds?: number;
-}
-
-export interface ClientToken {
-  readonly token: string;
-  readonly expiresIn: number;
 }
 
 export interface ClientTokenIssuer {

@@ -10,8 +10,8 @@ const fixtureBundle = JSON.parse(await readFile(new URL('./fixtures/contract.jso
 const byId = Object.fromEntries(fixtureBundle.operations.map(f => [f.operationId, f]));
 const syntheticKey = 'sk-offline-runner-test-only';
 const syntheticToken = 'ct-offline-runner-test-only';
-const newFoodId = 81234567;
-const newServingId = 71234567;
+const newFoodId = '81234567';
+const newServingId = '71234567';
 const logId = '9c56112d-038a-426e-9080-6aeaf1c3a433';
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
 
@@ -44,8 +44,7 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
         assert.equal(tokenUsers.size, 1);
       } else assert.equal(req.headers.authorization, `Bearer ${syntheticKey}`);
       if (userId) assert.match(userId, /^sdk-e2e-node-[0-9a-f-]{36}$/);
-      if (['createFoodLog', 'updateFoodLog', 'deleteFoodLog', 'listFoodLogs', 'predictGlucose'].includes(operationId)) assert.equal(req.headers['x-end-user-timezone'], 'UTC');
-      if (operationId === 'mintClientToken') {
+      if (operationId === 'createClientToken') {
         assert.match(body.end_user_id, /^sdk-e2e-node-[0-9a-f-]{36}$/); assert.ok(body.end_user_id.length <= 64);
         tokenUsers.add(body.end_user_id);
         if (timeoutMint) return; // Creation succeeded, but the response is ambiguous.
@@ -56,8 +55,11 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
       }
       let result = structuredClone(fixture.response.body);
       const headers = { ...fixture.response.headers, 'content-type': 'application/json' };
-      if (operationId === 'searchFoods' || operationId === 'lookupFoodByBarcode') {
+      if (operationId === 'searchFoods') {
         result.items[0].id = newFoodId; result.items[0].servings[0].id = newServingId;
+      }
+      if (operationId === 'lookupFoodByBarcode') {
+        result.id = newFoodId; result.servings[0].id = newServingId;
       }
       if (operationId === 'getFood') {
         assert.ok(url.pathname.endsWith('/' + newFoodId));
@@ -68,27 +70,31 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
       if (operationId === 'scanFoodPhoto') assert.equal(body.image, `data:image/png;base64,${png.toString('base64')}`);
       if (operationId === 'searchFoodsByNaturalLanguage') assert.equal(body.text, 'one banana');
       if (operationId === 'createFoodLog') {
-        assert.deepEqual(body.foods, [{ id: newFoodId, serving: { id: newServingId, quantity: 1 } }]);
-        result.id = logId; result.timestamp_utc = body.timestamp_utc; result.name = body.name;
-        result.foods[0].id = newFoodId; result.foods[0].consumed_serving.id = newServingId;
+        assert.deepEqual(body.foods, [{ food_id: newFoodId, serving_id: newServingId, quantity: 1 }]);
+        result.id = logId; result.eaten_at = body.eaten_at; result.name = body.name;
+        result.foods[0].food_id = newFoodId; result.foods[0].serving.id = newServingId;
         logs.set(userId, result);
       }
-      if (operationId === 'listFoodLogs') result = { total_count: logs.has(userId) ? 1 : 0, items: logs.has(userId) ? [logs.get(userId)] : [] };
+      if (operationId === 'listFoodLogs') result = { items: logs.has(userId) ? [logs.get(userId)] : [] };
+      if (operationId === 'getFoodLog') {
+        assert.ok(logs.has(userId)); assert.ok(url.pathname.endsWith('/' + logId));
+        result = logs.get(userId);
+      }
       if (operationId === 'updateFoodLog') {
         assert.ok(logs.has(userId)); assert.ok(url.pathname.endsWith('/' + logId));
         result = logs.get(userId); result.name = body.name;
       }
       if (operationId === 'deleteFoodLog') { assert.ok(logs.has(userId)); assert.ok(url.pathname.endsWith('/' + logId)); logs.delete(userId); }
       if (operationId === 'predictGlucose') {
-        assert.deepEqual(body.foods, [{ id: newFoodId, serving: { id: newServingId, quantity: 1 } }]);
+        assert.deepEqual(body.foods, [{ food_id: newFoodId, serving_id: newServingId, quantity: 1 }]);
         assert.equal(body.user_profile.age, 30); assert.equal(body.user_profile.height.unit, 'cm');
       }
-      if (operationId === 'mintClientToken') result = { token: syntheticToken, end_user_id: body.end_user_id, scopes: body.scopes, expires_in: body.ttl_seconds, expires_at: new Date(Date.now() + body.ttl_seconds * 1000).toISOString() };
+      if (operationId === 'createClientToken') result = { token: syntheticToken, end_user_id: body.end_user_id, scopes: body.scopes, expires_in: body.ttl_seconds, expires_at: new Date(Date.now() + body.ttl_seconds * 1000).toISOString() };
       if (operationId === 'revokeClientTokens') {
-        const id = url.searchParams.get('end_user_id');
+        const id = body.end_user_id;
         assert.match(id, /^sdk-e2e-node-[0-9a-f-]{36}$/);
         assert.equal(tokenUsers.has(id), true); tokenUsers.delete(id);
-        headers['X-Revoked-Count'] = '1';
+        result = { revoked_count: 1 };
       }
       res.writeHead(fixture.response.status, headers);
       res.end(fixture.response.status === 204 ? undefined : JSON.stringify(result));
@@ -146,17 +152,17 @@ test('missing key is NOT_RUN, nonzero, and never invokes network', async t => {
   const output = [];
   const result = await main({ root, env: {}, emit: line => output.push(line), fetchImpl: async () => { calls++; throw new Error('must not call'); } });
   assert.equal(result.exitCode, 2); assert.equal(result.report.status, 'NOT_RUN'); assert.equal(calls, 0);
-  assert.deepEqual(result.report.counts, { total: 18, passed: 0, failed: 0, blocked: 18 });
+  assert.deepEqual(result.report.counts, { total: 20, passed: 0, failed: 0, blocked: 20 });
   assert.deepEqual(output, ['configuration NOT_RUN code=missing_api_key']);
 });
 
-test('all18 live workflow passes against local HTTP; dynamic IDs, photo, token usability, and cleanup', async t => {
+test('all20 live workflow passes against local HTTP; dynamic IDs, photo, token usability, and cleanup', async t => {
   const result = await execute(t, {}, { JANUARY_E2E_USER_ID: 'real-user-must-be-ignored', JANUARY_BASE_URL: 'https://ignored.invalid' });
   assert.equal(result.exitCode, 0, JSON.stringify(result.report)); assert.equal(result.report.status, 'PASS');
-  assert.deepEqual(result.report.counts, { total: 18, passed: 18, failed: 0, blocked: 0 });
+  assert.deepEqual(result.report.counts, { total: 20, passed: 20, failed: 0, blocked: 0 });
   assert.deepEqual(result.report.extraCounts, { total: 1, passed: 1, failed: 0, blocked: 0 });
   assert.deepEqual(result.report.cleanupCounts, { total: 2, passed: 2, failed: 0, blocked: 0 });
-  assert.equal(result.mock.requests.length, 19);
+  assert.equal(result.mock.requests.length, 21);
   assert.equal(result.mock.requests.filter(r => r.operationId === 'revokeClientTokens').length, 1);
   assert.equal(result.mock.requests.filter(r => r.operationId === 'deleteFoodLog').length, 1);
   assert.equal(result.mock.logs.size, 0); assert.equal(result.mock.tokenUsers.size, 0);
@@ -166,7 +172,7 @@ test('independent operations continue and dependent operations are BLOCKED, neve
   const { report, exitCode, mock } = await execute(t, { fail: { searchFoods: 503 }, hostile: true });
   assert.equal(exitCode, 1);
   for (const name of ['foods.get', 'foods.suggestAlternatives', 'foodLogs.create', 'foodLogs.update', 'glucose.predict', 'foodLogs.delete']) assert.equal(report.results.find(r => r.operation === name).status, 'BLOCKED');
-  for (const name of ['foods.autocomplete', 'restaurants.search', 'foodAnalysis.analyzeDescription', 'mintClientToken', 'revokeClientTokens']) assert.equal(report.results.find(r => r.operation === name).status, 'PASS');
+  for (const name of ['foods.autocomplete', 'restaurants.search', 'foodAnalysis.analyzeDescription', 'createClientToken', 'revokeClientTokens']) assert.equal(report.results.find(r => r.operation === name).status, 'PASS');
   assert.equal(mock.requests.filter(r => r.operationId === 'revokeClientTokens').length, 1);
   assert.ok(report.counts.blocked > 0); assert.equal(mock.tokenUsers.size, 0);
 });
@@ -181,9 +187,9 @@ test('finally deletes its own log and revokes tokens after update fails', async 
 test('ambiguous mint timeout still gets one revoke; native-token probe is BLOCKED', async t => {
   const { report, mock, exitCode } = await execute(t, { timeoutMint: true });
   assert.equal(exitCode, 1);
-  assert.equal(report.results.find(r => r.operation === 'mintClientToken').status, 'FAIL');
+  assert.equal(report.results.find(r => r.operation === 'createClientToken').status, 'FAIL');
   assert.equal(report.extra[0].status, 'BLOCKED');
-  assert.equal(mock.requests.filter(r => r.operationId === 'mintClientToken').length, 1);
+  assert.equal(mock.requests.filter(r => r.operationId === 'createClientToken').length, 1);
   assert.equal(mock.requests.filter(r => r.operationId === 'revokeClientTokens').length, 1);
   assert.equal(mock.tokenUsers.size, 0); assert.equal(mock.logs.size, 0);
 });
