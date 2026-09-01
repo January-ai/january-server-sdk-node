@@ -12,7 +12,6 @@ export { JanuaryApiError, JanuaryApiError as JanuaryAPIError, JanuaryConfigurati
 export { JanuaryError, JanuaryResponseError, BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError, PayloadTooLargeError, RateLimitError, CreditLimitExceededError, InternalServerError } from './errors.js';
 export { createHttpTokenIssuer } from "./http.js";
 export type {
-  ClientToken,
   ClientTokenIssuer,
   CreateClientTokenInput,
   DemoClientTokenIssuerOptions,

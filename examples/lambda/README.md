@@ -32,7 +32,7 @@ Expected HTTP 200 body (illustrative token):
 {"token":"ct-example-do-not-use","expiresIn":1800}
 ```
 
-The handler calls `mintClientToken` with `foods:read` and a 1,800-second lifetime,
+The handler calls `createClientToken` with `foods:read` and a 1,800-second lifetime,
 then maps the result to `{token, expiresIn}` for the client token provider.
 Missing user identity returns 401; upstream issuance failure returns a safe 502.
 Successful token responses have `Cache-Control: no-store`.

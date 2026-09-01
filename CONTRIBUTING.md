@@ -48,9 +48,9 @@ node tools/server-sdk/node.mjs --contract artifacts/server-sdk/contract.json --o
 node tools/server-sdk/node.mjs --contract artifacts/server-sdk/contract.json --output ../january-server-sdk-node --check
 ```
 
-The generator uses Node builtins only, emits all 18 typed public operation wrappers/models, and copies sibling `fixtures.json` into standalone tests. `sdk-contract.lock.json` records raw contract and generator SHA-256 hashes; `sdk-surface.json` records native resource/method names. Existing client release artifacts are untouched.
+The generator uses Node builtins only, emits all 20 typed public operation wrappers/models, and copies sibling `fixtures.json` into standalone tests. `sdk-contract.lock.json` records raw contract and generator SHA-256 hashes; `sdk-surface.json` records native resource/method names. Existing client release artifacts are untouched.
 
 
 ## Prototype compatibility
 
-The `January` name, `createDemoTokenIssuer`, `createHttpTokenIssuer`, and `clientTokens.create` alias remain for existing applications. The alias returns its historical `{token, expiresIn}` shape; new code and the framework examples use `mintClientToken` for the full contract response, then map it explicitly for client token providers. Injected demo issuers affect only the legacy alias and cannot authorize real API operations. Per-endpoint `clientTokenPath` overrides are no longer supported: generated contract paths are authoritative. Tests inject their own HTTP transport.
+The `January` name, `createDemoTokenIssuer`, `createHttpTokenIssuer`, and `clientTokens.create` alias remain for existing applications. The alias returns its historical `{token, expiresIn}` shape; new code and the framework examples use `createClientToken` for the full contract response, then map it explicitly for client token providers. Injected demo issuers affect only the legacy alias and cannot authorize real API operations. Per-endpoint `clientTokenPath` overrides are no longer supported: generated contract paths are authoritative. Tests inject their own HTTP transport.

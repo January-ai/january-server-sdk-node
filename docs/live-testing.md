@@ -9,7 +9,7 @@ On a fresh checkout, copy `.env.example` to `.env` and set `JANUARY_API_KEY`.
 Keep an existing `.env` unchanged. `.env` and `.e2e-results/` are ignored;
 only the blank `.env.example` belongs in source control.
 
-Before running all 18 operations, open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens)
+Before running all 20 operations, open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens)
 and select **Enable client tokens** for the organization that owns your API key.
 The workflow mints and revokes a test token, so this step is required here even
 though it is not needed for the food-search quick start. Check your credit balance
@@ -33,11 +33,11 @@ Both build the SDK and run `node examples/live/main.mjs`. Configure `JANUARY_API
 | `JANUARY_E2E_LATITUDE` / `JANUARY_E2E_LONGITUDE` | `37.7749` / `-122.4194` |
 | `JANUARY_E2E_IMAGE_PATH` | `examples/live/food.png` (PNG, JPEG, or WebP) |
 
-The runner exercises all 18 canonical SDK operations, plus one native HTTP food search with the newly minted `ct-` token to verify usability. Photo analysis sends the fixture's actual base64 data URI. Description analysis uses `query: 'one banana'`; correction uses returned detections and meal name. Food logging and glucose prediction use food/serving IDs returned during that run and a synthetic profile.
+The runner exercises all 20 canonical SDK operations, plus one native HTTP food search with the newly minted `ct-` token to verify usability. Photo analysis sends the fixture's actual base64 data URI. Description analysis uses `query: 'one banana'`; correction sends the returned analysis with an instruction. Food logging and glucose prediction use food/serving IDs returned during that run and a synthetic profile.
 
 Each invocation creates its own `sdk-e2e-node-<UUID>` identity in UTC; existing user IDs cannot be supplied. Independent operations continue after failures; dependent operations are BLOCKED and never counted as passes. Cleanup runs in `finally`, deletes only logs in this fresh run's user scope, and makes exactly one `revokeClientTokens` call after any mint attempt—even an ambiguous timeout. There are no automatic retries or revoke-all loops. A create timeout can require one cleanup discovery list; unconfirmed cleanup is a failure. Token revocation may take 60 seconds to propagate, so immediate token rejection is deliberately not asserted.
 
-Console output contains only operation labels, statuses, safe codes, and request IDs. The safe report is `.e2e-results/latest.json`, with operation durations/counts and separate token-probe/cleanup results. Keys, tokens, response bodies, user IDs, and private text are excluded. Exit 0 requires all 18 operations, the token probe, and cleanup to pass; failures or BLOCKED checks exit 1. Do not claim live success from the offline fixture tests.
+Console output contains only operation labels, statuses, safe codes, and request IDs. The safe report is `.e2e-results/latest.json`, with operation durations/counts and separate token-probe/cleanup results. Keys, tokens, response bodies, user IDs, and private text are excluded. Exit 0 requires all 20 operations, the token probe, and cleanup to pass; failures or BLOCKED checks exit 1. Do not claim live success from the offline fixture tests.
 
 New runner tests only (local HTTP fixtures; no real credentials or network targets):
 

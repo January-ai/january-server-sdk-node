@@ -18,7 +18,7 @@ export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async (event) 
   }
 
   try {
-    const token = await january.mintClientToken({ endUserId, scopes: ["foods:read"], ttlSeconds: 1800 });
+    const token = await january.createClientToken({ endUserId, scopes: ["foods:read"], ttlSeconds: 1800 });
     return {
       statusCode: 200,
       headers: { "content-type": "application/json", "cache-control": "no-store" },

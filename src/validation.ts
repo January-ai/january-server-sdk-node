@@ -12,12 +12,12 @@ export function validateCreateInput(input: CreateClientTokenInput): void {
     throw new JanuaryValidationError("endUserId must be 64 characters or fewer");
   }
 
-  if (input.scopes !== undefined && (
+  if (
     !Array.isArray(input.scopes) || input.scopes.length === 0
     || input.scopes.length > CLIENT_TOKEN_SCOPES.size
     || input.scopes.some((scope: unknown) => typeof scope !== "string" || !CLIENT_TOKEN_SCOPES.has(scope))
-  )) {
-    throw new JanuaryValidationError("scopes contains a scope unavailable to client tokens");
+  ) {
+    throw new JanuaryValidationError("scopes must contain at least one scope available to client tokens");
   }
 
   if (

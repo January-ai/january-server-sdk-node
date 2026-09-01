@@ -7,13 +7,19 @@ export type FoodPortionErrorCode =
   | 'invalid_quantity';
 
 export interface FoodPortionOptions {
-  servingId?: number;
+  servingId?: string;
   quantity?: number;
 }
 
+type ValidServing = ServingOption & {
+  id: string;
+  quantity: number;
+  scalingFactor: number;
+};
+
 /** A validated serving and quantity with locally calculated nutrition. No API call is made. */
 export class FoodPortion {
-  readonly foodId: number;
+  readonly foodId: string;
   readonly serving: ServingOption;
   readonly quantity: number;
   readonly nutrition: NutritionFacts;
@@ -23,7 +29,7 @@ export class FoodPortion {
   /** The exact selection accepted by food-log and glucose-prediction requests. */
   readonly selection: FoodSelection;
 
-  private constructor(food: FoodSearchItem, serving: ServingOption, quantity: number) {
+  private constructor(food: FoodSearchItem, serving: ValidServing, quantity: number) {
     const scale = quantity * serving.scalingFactor / serving.quantity;
     this.foodId = food.id;
     this.serving = { ...serving };
@@ -33,7 +39,7 @@ export class FoodPortion {
       ? null : serving.weightGrams * quantity / serving.quantity;
     this.glycemicIndex = food.glycemicIndex ?? null;
     this.glycemicLoad = food.glycemicLoad == null ? null : food.glycemicLoad * scale;
-    this.selection = { id: food.id, serving: { id: serving.id, quantity } };
+    this.selection = { foodId: food.id, servingId: serving.id, quantity };
   }
 
   /** Defaults to the primary (or first) serving and that serving's listed quantity. */
@@ -43,15 +49,16 @@ export class FoodPortion {
       ? food.servings.find(item => item.isPrimary) ?? food.servings[0]
       : food.servings.find(item => item.id === options.servingId);
     if (!serving) throw new FoodPortionError('serving_not_found');
-    if (!Number.isFinite(serving.quantity) || serving.quantity <= 0
-      || !Number.isFinite(serving.scalingFactor) || serving.scalingFactor <= 0) {
+    if (typeof serving.id !== 'string' || !serving.id
+      || serving.quantity === null || !Number.isFinite(serving.quantity) || serving.quantity <= 0
+      || serving.scalingFactor === null || !Number.isFinite(serving.scalingFactor) || serving.scalingFactor <= 0) {
       throw new FoodPortionError('invalid_serving');
     }
     const quantity = options.quantity ?? serving.quantity;
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 10_000) {
       throw new FoodPortionError('invalid_quantity');
     }
-    return new FoodPortion(food, serving, quantity);
+    return new FoodPortion(food, serving as ValidServing, quantity);
   }
 }
 

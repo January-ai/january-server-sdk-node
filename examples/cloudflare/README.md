@@ -51,7 +51,7 @@ Cache-Control: no-store
 {"token":"ct-example","expiresIn":1800}
 ```
 
-No request body is required. The root `mintClientToken` operation receives the
+No request body is required. The root `createClientToken` operation receives the
 authenticated user ID, server-selected `scopes: ['foods:read']`, and
 `ttlSeconds: 1800`. Body-supplied identity, scopes, and lifetime are ignored.
 Only `{token, expiresIn}` is returned, preserving the client SDK relay shape.

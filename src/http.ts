@@ -1,5 +1,5 @@
 import { operations } from './generated/operations.js';
-import type { ClientTokenResponseDto } from './generated/models.js';
+import type { ClientToken } from './generated/models.js';
 import { HttpRuntime } from './runtime.js';
 import { JanuaryConfigurationError } from './errors.js';
 import type { ClientTokenIssuer, HttpClientTokenIssuerOptions } from './types.js';
@@ -13,8 +13,7 @@ export function createHttpTokenIssuer(options: HttpClientTokenIssuerOptions): Cl
   return Object.freeze({
     async create(input) {
       validateCreateInput(input);
-      const token = await runtime.request<ClientTokenResponseDto>(operations.mintClientToken!, { ...input });
-      return { token: token.token, expiresIn: token.expiresIn };
+      return runtime.request<ClientToken>(operations.createClientToken!, { ...input, scopes: [...input.scopes] });
     },
   } satisfies ClientTokenIssuer);
 }

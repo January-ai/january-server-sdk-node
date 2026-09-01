@@ -3,15 +3,15 @@ import test from 'node:test';
 import { FoodPortion, FoodPortionError } from '../dist/index.js';
 
 const food = {
-  id: 42, name: 'Test food',
+  id: '42', name: 'Test food',
   calories: 100, protein: 10, carbohydrates: 20, netCarbohydrates: 18,
   totalFat: 5, saturatedFat: 2, fiber: 2, totalSugars: 3, addedSugars: 1,
   sodium: 200, potassium: 300, cholesterol: 4,
   nutrients: { calories: { value: 100, unit: 'cal' }, protein: { value: 10, unit: 'g' } },
   glycemicIndex: 50, glycemicLoad: 8,
   servings: [
-    { id: 1, quantity: 1, unit: 'slice', scalingFactor: 1, weightGrams: 50, isPrimary: true },
-    { id: 2, quantity: 2, unit: 'pieces', scalingFactor: 3, weightGrams: 120, isPrimary: false },
+    { id: '1', quantity: 1, unit: 'slice', scalingFactor: 1, weightGrams: 50, isPrimary: true },
+    { id: '2', quantity: 2, unit: 'pieces', scalingFactor: 3, weightGrams: 120, isPrimary: false },
   ],
 };
 const errorWithCode = code => error => error instanceof FoodPortionError
@@ -19,29 +19,29 @@ const errorWithCode = code => error => error instanceof FoodPortionError
 
 test('FoodPortion defaults to primary serving and builds a request-ready selection', () => {
   const portion = FoodPortion.from({ ...food, servings: [...food.servings].reverse() });
-  assert.equal(portion.foodId, 42);
-  assert.equal(portion.serving.id, 1);
+  assert.equal(portion.foodId, '42');
+  assert.equal(portion.serving.id, '1');
   assert.equal(portion.quantity, 1);
   assert.equal(portion.nutrition.calories.value, 100);
-  assert.deepEqual(portion.selection, { id: 42, serving: { id: 1, quantity: 1 } });
+  assert.deepEqual(portion.selection, { foodId: '42', servingId: '1', quantity: 1 });
 });
 
 test('FoodPortion falls back to first serving and its listed quantity', () => {
   const portion = FoodPortion.from({ ...food, servings: [food.servings[1]] });
-  assert.equal(portion.serving.id, 2);
+  assert.equal(portion.serving.id, '2');
   assert.equal(portion.quantity, 2);
   assert.equal(portion.nutrition.calories.value, 300);
 });
 
 test('FoodPortion matches client alternate-serving math without mutating input', () => {
   const source = structuredClone(food);
-  const portion = FoodPortion.from(source, { servingId: 2, quantity: 4 });
+  const portion = FoodPortion.from(source, { servingId: '2', quantity: 4 });
   assert.equal(portion.nutrition.calories.value, 600);
   assert.equal(portion.nutrition.protein.value, 60);
   assert.equal(portion.totalWeightGrams, 240);
   assert.equal(portion.glycemicIndex, 50);
   assert.equal(portion.glycemicLoad, 48);
-  assert.deepEqual(portion.selection, { id: 42, serving: { id: 2, quantity: 4 } });
+  assert.deepEqual(portion.selection, { foodId: '42', servingId: '2', quantity: 4 });
   assert.deepEqual(source, food);
   portion.nutrition.calories.value = 999;
   portion.serving.quantity = 999;
@@ -88,7 +88,7 @@ test('FoodPortion preserves unknown weight and glycemic values, and real zero va
 
 test('FoodPortion rejects missing servings and unknown serving IDs', () => {
   assert.throws(() => FoodPortion.from({ ...food, servings: [] }), errorWithCode('no_servings'));
-  assert.throws(() => FoodPortion.from(food, { servingId: 999 }), errorWithCode('serving_not_found'));
+  assert.throws(() => FoodPortion.from(food, { servingId: '999' }), errorWithCode('serving_not_found'));
 });
 
 for (const quantity of [0, -1, NaN, Infinity, -Infinity, 10_000.01]) {

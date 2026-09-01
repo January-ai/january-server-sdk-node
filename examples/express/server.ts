@@ -35,7 +35,7 @@ app.post(
   async (request: AuthenticatedRequest, response: Response) => {
     // The caller cannot choose endUserId or scopes; both are server-controlled.
     try {
-      const token = await january.mintClientToken({
+      const token = await january.createClientToken({
         endUserId: request.user!.id,
         scopes: ["foods:read"],
         ttlSeconds: 1800,

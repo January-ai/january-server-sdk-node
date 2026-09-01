@@ -1,10 +1,10 @@
 import { JanuaryConfigurationError } from "./errors.js";
 import type {
-  ClientToken,
   ClientTokenIssuer,
   CreateClientTokenInput,
   DemoClientTokenIssuerOptions,
 } from "./types.js";
+import type { ClientToken } from "./generated/models.js";
 import { validateCreateInput } from "./validation.js";
 
 export function createDemoTokenIssuer(options: DemoClientTokenIssuerOptions): ClientTokenIssuer {
@@ -27,6 +27,9 @@ export function createDemoTokenIssuer(options: DemoClientTokenIssuerOptions): Cl
       return {
         token,
         expiresIn,
+        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+        endUserId: input.endUserId.trim(),
+        scopes: [...input.scopes],
       };
     },
   };

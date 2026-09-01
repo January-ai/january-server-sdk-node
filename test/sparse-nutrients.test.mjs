@@ -101,17 +101,16 @@ for (const fixture of cases.filter(item => item.valid && item.response.body.dete
     assert.ok(correctedFixture);
     const { client, requests } = mockClient([fixture.response, correctedFixture.response]);
     const result = await call(client, source, inputFor(source));
-    const detectionsBefore = structuredClone(result.detections);
+    const analysisBefore = structuredClone(result);
     const corrected = await client.foodAnalysis.correct({
-      ...inputFor(correction),
-      ...(result.mealName !== undefined ? { mealName: result.mealName } : {}),
-      detections: result.detections,
+      analysis: result,
+      instruction: inputFor(correction).instruction,
     });
     assert.equal(requests.length, 2, 'One source call and one intended correction, with no retries');
     assert.equal(requests[1].method, correction.method);
     assert.equal(requests[1].url.pathname, correction.path);
-    assert.deepEqual(requests[1].body.detections, fixture.response.body.detections, 'Correction must send the returned nutrient maps unchanged');
-    assert.deepEqual(result.detections, detectionsBefore, 'Correction must not mutate its input');
+    assert.deepEqual(requests[1].body.analysis, fixture.response.body, 'Correction must send the returned analysis unchanged');
+    assert.deepEqual(result, analysisBefore, 'Correction must not mutate its input');
     for (const path of correctedFixture.nutrientPaths) assertNutrients(atPath(corrected, path), correctedFixture.expectedNutrients);
   });
 }
