@@ -307,3 +307,7 @@ The npm package `@january-ai/server` includes compiled ESM and CommonJS JavaScri
 - [Typed SDK operations](src/generated/api.ts) and [models](src/generated/models.ts) describe the SDK's methods and types; editor autocomplete also exposes these definitions.
 - For help, contact [support@january.ai](mailto:support@january.ai). Include the SDK/runtime version, API status/code, and sanitized request ID when reporting failures; never include API keys, tokens, or private payloads.
 - [Contributing](CONTRIBUTING.md) covers local tests, contract generation, and compatibility details.
+
+## License
+
+The Apache 2.0 license applies to the source code in this repository. It does not grant rights to nutrition data, food images, or other content returned by the January API, which are subject to the January API Developer Terms.
