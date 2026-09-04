@@ -1,8 +1,8 @@
 # January Server SDK for Node.js
 
 [![CI](https://github.com/January-ai/january-server-sdk-node/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/January-ai/january-server-sdk-node/actions/workflows/ci.yml)
-[![Node.js 22+](https://img.shields.io/badge/node-22%2B-brightgreen.svg)](package.json)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Node.js 22+](https://img.shields.io/badge/node-22%2B-brightgreen.svg)](https://github.com/January-ai/january-server-sdk-node/blob/main/package.json)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/January-ai/january-server-sdk-node/blob/main/LICENSE)
 
 Use January's food search, barcode lookup, food analysis, food logs, and glucose prediction from a trusted Node.js backend. Includes local serving calculations and server-only token and credit operations.
 
