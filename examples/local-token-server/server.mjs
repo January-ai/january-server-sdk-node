@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 export const DEFAULT_DEMO_SESSION_TOKEN = 'january-local-demo';
 export const DEFAULT_DEMO_USER_ID = 'january-sdk-demo-user';
@@ -69,7 +69,7 @@ export function createLocalTokenServer({
       }
       const token = await issueClientToken({ endUserId, scopes: [...DEMO_SCOPES], ttlSeconds: 1_800 });
       json(response, 200, { token: token.token, expiresIn: token.expiresIn });
-    } catch (error) {
+    } catch {
       logger.error('Unable to mint a January client token. Confirm that the API key is active and client tokens are enabled.');
       json(response, 502, { error: 'token_issuance_failed' });
     }

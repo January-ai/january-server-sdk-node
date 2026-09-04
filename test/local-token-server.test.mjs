@@ -33,6 +33,17 @@ test('local token server keeps identity and scopes server-controlled', async t =
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), { ok: true });
 
+  const preflight = await fetch(`${origin}/api/january/token`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'http://localhost:3000',
+      'Access-Control-Request-Method': 'POST',
+    },
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+  assert.equal(preflight.headers.get('access-control-allow-methods'), 'POST, OPTIONS');
+
   const unauthenticated = await fetch(`${origin}/api/january/token`, { method: 'POST' });
   assert.equal(unauthenticated.status, 401);
   assert.equal(calls.length, 0);
