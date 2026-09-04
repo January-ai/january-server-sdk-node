@@ -36,13 +36,14 @@ export function createLocalTokenServer({
     response.setHeader('Cache-Control', 'no-store');
     applyLocalCors(request, response);
 
-    const tokenRoute = request.url === '/api/january/token';
-    const revokeRoute = request.url === '/api/january/token/revoke';
+    const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
+    const tokenRoute = pathname === '/api/january/token';
+    const revokeRoute = pathname === '/api/january/token/revoke';
     if (request.method === 'OPTIONS' && (tokenRoute || revokeRoute)) {
       response.writeHead(204).end();
       return;
     }
-    if (request.method === 'GET' && request.url === '/health') {
+    if (request.method === 'GET' && pathname === '/health') {
       json(response, 200, { ok: true });
       return;
     }

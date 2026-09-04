@@ -42,6 +42,15 @@ curl http://127.0.0.1:8787/health
 The response is `{"ok":true}`. The client demo requests and refreshes its own
 client token through its token provider.
 
+You can also verify the authenticated token route directly:
+
+```sh
+curl -X POST http://127.0.0.1:8787/api/january/token \
+  -H 'Authorization: Bearer january-local-demo'
+```
+
+The response contains a short-lived `ct-…` token. Do not save, log, or share it.
+
 The Web demo also uses `POST /api/january/token/revoke` to demonstrate signing
 the fixed local demo user out everywhere.
 
