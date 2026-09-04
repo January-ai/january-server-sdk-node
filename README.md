@@ -433,10 +433,11 @@ The full live workflow is not the quick start. It exercises all 20 operations, i
 
 The npm package `@january-ai/server` includes compiled ESM and CommonJS JavaScript plus TypeScript declarations. Commit your application's lockfile to keep dependency versions reproducible. See [Contributing](CONTRIBUTING.md#local-verification) for package build and installation checks.
 
-Maintainers create a version tag matching `package.json`. The release workflow
-verifies and packs that exact commit, then creates a draft GitHub release for
-review. Publishing to npm is a separate maintainer action until registry
-trusted publishing is configured.
+Maintainers create a `vX.Y.Z` tag whose version exactly matches `package.json`
+(for example, package version `0.1.0` requires tag `v0.1.0`). The release
+workflow verifies and packs that exact commit, then creates a draft GitHub
+release for review. Publishing to npm is a separate maintainer action until
+registry trusted publishing is configured.
 
 ## Reference, support, and contributing
 
