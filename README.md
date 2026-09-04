@@ -1,10 +1,28 @@
 # January Server SDK for Node.js
 
+[![CI](https://github.com/January-ai/january-server-sdk-node/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/January-ai/january-server-sdk-node/actions/workflows/ci.yml)
+[![Node.js 22+](https://img.shields.io/badge/node-22%2B-brightgreen.svg)](https://github.com/January-ai/january-server-sdk-node/blob/main/package.json)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/January-ai/january-server-sdk-node/blob/main/LICENSE)
+
 Use January's food search, barcode lookup, food analysis, food logs, and glucose prediction from a trusted Node.js backend. Includes local serving calculations and server-only token and credit operations.
 
 Requires Node.js 22+. Supports TypeScript, ESM, and CommonJS. No runtime dependencies. Server API keys must never be shipped to browsers or mobile apps; browser imports are rejected.
 
 For Cloudflare Workers, use the [Worker example](examples/cloudflare/README.md) with `nodejs_compat` enabled. It uses the same API-key configuration and SDK methods.
+
+## Contents
+
+- [Quick start](#quick-start)
+- [Run any client SDK demo locally](#run-any-client-sdk-demo-locally)
+- [Detailed setup and credentials](#detailed-setup-and-credentials)
+- [Complete diagnostic example](#complete-diagnostic-example)
+- [Common tasks](#common-tasks)
+- [Server-only operations](#server-only-operations)
+- [Configuration and errors](#configuration-and-errors)
+- [Examples and testing](#examples-and-testing)
+- [Distribution and releases](#distribution-and-releases)
+- [Reference, support, and contributing](#reference-support-and-contributing)
+- [License](#license)
 
 ## Quick start
 
@@ -414,6 +432,12 @@ The full live workflow is not the quick start. It exercises all 20 operations, i
 ## Distribution and releases
 
 The npm package `@january-ai/server` includes compiled ESM and CommonJS JavaScript plus TypeScript declarations. Commit your application's lockfile to keep dependency versions reproducible. See [Contributing](CONTRIBUTING.md#local-verification) for package build and installation checks.
+
+Maintainers create a `vX.Y.Z` tag whose version exactly matches `package.json`
+(for example, package version `0.1.0` requires tag `v0.1.0`). The release
+workflow verifies and packs that exact commit, then creates a draft GitHub
+release for review. Publishing to npm is a separate maintainer action until
+registry trusted publishing is configured.
 
 ## Reference, support, and contributing
 
