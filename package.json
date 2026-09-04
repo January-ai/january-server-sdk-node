@@ -33,6 +33,7 @@
     "build": "tsc -p tsconfig.json && node scripts/build-cjs.mjs",
     "prepare": "npm run build",
     "demo": "npm run build && npm --prefix examples/express ci --ignore-scripts && npm --prefix examples/lambda ci --ignore-scripts && node scripts/local-demo.mjs",
+    "demo:token-server": "node examples/local-token-server/server.mjs",
     "test": "npm run build && node --test test/*.test.mjs",
     "test:distribution": "node scripts/test-distribution.mjs",
     "test:e2e:offline": "node --test test/live-runner.test.mjs",
