@@ -36,7 +36,11 @@ export function createLocalTokenServer({
     response.setHeader('Cache-Control', 'no-store');
     applyLocalCors(request, response);
 
-    const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
+    const pathname = parseRequestPathname(request.url);
+    if (!pathname) {
+      json(response, 400, { error: 'invalid_url' });
+      return;
+    }
     const tokenRoute = pathname === '/api/january/token';
     const revokeRoute = pathname === '/api/january/token/revoke';
     if (request.method === 'OPTIONS' && (tokenRoute || revokeRoute)) {
@@ -119,6 +123,14 @@ function readPort(raw) {
     throw new Error('PORT must be an integer from 1 through 65535.');
   }
   return port;
+}
+
+export function parseRequestPathname(requestUrl) {
+  try {
+    return new URL(requestUrl ?? '/', 'http://127.0.0.1').pathname;
+  } catch {
+    return undefined;
+  }
 }
 
 function applyLocalCors(request, response) {

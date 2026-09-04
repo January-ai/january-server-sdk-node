@@ -7,7 +7,12 @@ import {
   DEFAULT_DEMO_USER_ID,
   DEMO_SCOPES,
   createLocalTokenServer,
+  parseRequestPathname,
 } from '../examples/local-token-server/server.mjs';
+
+test('local token server rejects an invalid request target safely', () => {
+  assert.equal(parseRequestPathname('http://['), undefined);
+});
 
 test('local token server keeps identity and scopes server-controlled', async t => {
   const calls = [];
