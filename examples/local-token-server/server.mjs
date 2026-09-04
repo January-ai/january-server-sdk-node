@@ -76,6 +76,11 @@ export function createLocalTokenServer({
       const token = await issueClientToken({ endUserId, scopes: [...DEMO_SCOPES], ttlSeconds: 1_800 });
       json(response, 200, { token: token.token, expiresIn: token.expiresIn });
     } catch {
+      if (revokeRoute) {
+        logger.error('Unable to revoke January client tokens. Confirm that the API key is active.');
+        json(response, 502, { error: 'token_revocation_failed' });
+        return;
+      }
       logger.error('Unable to mint a January client token. Confirm that the API key is active and client tokens are enabled.');
       json(response, 502, { error: 'token_issuance_failed' });
     }

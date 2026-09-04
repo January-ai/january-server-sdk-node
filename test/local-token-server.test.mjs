@@ -60,6 +60,9 @@ test('local token server keeps identity and scopes server-controlled', async t =
   });
   assert.equal(revokePreflight.status, 204);
   assert.equal(revokePreflight.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+  assert.equal(revokePreflight.headers.get('access-control-allow-methods'), 'POST, OPTIONS');
+  assert.equal(revokePreflight.headers.get('access-control-allow-headers'), 'Authorization, Content-Type');
+  assert.equal(revokePreflight.headers.get('vary'), 'Origin');
 
   const unauthenticated = await fetch(`${origin}/api/january/token`, { method: 'POST' });
   assert.equal(unauthenticated.status, 401);
@@ -112,4 +115,26 @@ test('local token server returns a sanitized mint failure', async t => {
   assert.deepEqual(await response.json(), { error: 'token_issuance_failed' });
   assert.equal(errors.length, 1);
   assert.doesNotMatch(errors[0], /sk-private|upstream-detail/);
+});
+
+test('local token server returns a sanitized revoke failure', async t => {
+  const errors = [];
+  const server = createLocalTokenServer({
+    issueClientToken: async () => ({ token: 'ct-unused', expiresIn: 1_800 }),
+    revokeClientTokens: async () => { throw new Error('sk-private-revoke-detail'); },
+    logger: { error: message => errors.push(message) },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolveClose => server.close(resolveClose)));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+
+  const response = await fetch(`${origin}/api/january/token/revoke`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${DEFAULT_DEMO_SESSION_TOKEN}` },
+  });
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: 'token_revocation_failed' });
+  assert.equal(errors.length, 1);
+  assert.doesNotMatch(errors[0], /sk-private|revoke-detail/);
 });
