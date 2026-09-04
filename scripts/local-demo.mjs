@@ -141,5 +141,5 @@ try {
 } finally {
   for (const child of children) await stop(child);
   await new Promise(resolveClose => { service.close(resolveClose); service.closeAllConnections(); });
-  await rm(directory, { recursive: true, force: true });
+  await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

@@ -1,4 +1,4 @@
-# January server SDK for Node.js
+# January Server SDK for Node.js
 
 Use January's food search, barcode lookup, food analysis, food logs, and glucose prediction from a trusted Node.js backend. Includes local serving calculations and server-only token and credit operations.
 
@@ -6,7 +6,106 @@ Requires Node.js 22+. Supports TypeScript, ESM, and CommonJS. No runtime depende
 
 For Cloudflare Workers, use the [Worker example](examples/cloudflare/README.md) with `nodejs_compat` enabled. It uses the same API-key configuration and SDK methods.
 
-## Before you begin
+## Quick start
+
+### 1. Create and configure a server API key
+
+[Sign in to the Developer Dashboard](https://dashboard.january.ai/dashboard),
+open **API keys → Create key**, and copy the full `sk-…` value when it is shown.
+Keep it on your trusted backend and never commit it or ship it to a browser or
+mobile app.
+
+Create `.env` in your application directory:
+
+```dotenv
+JANUARY_API_KEY=sk-your-server-api-key
+```
+
+### 2. Install, connect, and make the first request
+
+```sh
+npm install @january-ai/server
+```
+
+Save this as `quickstart.mjs`:
+
+```js
+import { January } from '@january-ai/server';
+
+const january = new January({
+  secretKey: process.env.JANUARY_API_KEY,
+});
+const user = january.forUser({
+  endUserId: 'january-quickstart',
+  endUserTimezone: 'UTC',
+});
+
+const foods = await user.foods.search({ query: 'banana' });
+console.log(`Found ${foods.items.length} foods`);
+```
+
+Run it:
+
+```sh
+node --env-file=.env quickstart.mjs
+```
+
+A successful request prints a result count; an empty result is still a
+successful connection. Replace the synthetic ID with the stable ID from your
+authenticated server session. This read-only request may consume API credits.
+
+This server SDK accepts server API keys (`sk-…`), not client tokens (`ct-…`).
+Client tokens are needed only when your backend serves a browser or mobile app.
+For that flow, [enable client tokens](https://dashboard.january.ai/dashboard/client-tokens)
+and run the [Express token-endpoint example](examples/express/README.md).
+
+## Run any client SDK demo locally
+
+This is the fastest way to try the iOS, Android, React Native, or Web demo
+before your own backend is ready. The local server uses this SDK to exchange
+your server API key for short-lived client tokens. The API key stays in the
+server process and is never placed in the demo app.
+
+First complete both dashboard steps—they are on separate pages:
+
+1. [Sign up](https://dashboard.january.ai/sign-up) or
+   [sign in](https://dashboard.january.ai/sign-in), then open
+   **API keys → Create key** and copy the full `sk-…` value.
+2. Open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens)
+   and select **Enable client tokens**.
+
+Then, from this repository:
+
+```sh
+npm ci
+cp .env.example .env
+# Edit .env and set JANUARY_API_KEY to the key you just created.
+npm run demo:token-server
+```
+
+Leave that command running. It prints the exact values to give the client demo:
+
+| Demo | Token endpoint |
+| --- | --- |
+| iOS, React Native on iOS, Web | `http://127.0.0.1:8787/api/january/token` |
+| Android Emulator, React Native on Android | `http://10.0.2.2:8787/api/january/token` |
+
+Use `january-local-demo` as the demo session token. The default port is `8787`,
+and a health check is available at `http://127.0.0.1:8787/health`. If you set
+`PORT`, use the actual endpoint URLs printed when the server starts.
+
+This server is for local development and testing only. It binds to
+`127.0.0.1`, always mints tokens for the fixed `january-sdk-demo-user`, ignores
+client-supplied identities and scopes, and never logs credentials. In
+production, your authenticated backend must derive the end-user ID from its own
+session and choose the allowed scopes. See the
+[local server guide](examples/local-token-server/README.md) and the
+[Express production-shaped example](examples/express/README.md).
+
+## Detailed setup and credentials
+
+<details>
+<summary>Account, billing, and package details</summary>
 
 1. **Create your developer account.** [Sign up](https://dashboard.january.ai/sign-up), or [sign in](https://dashboard.january.ai/sign-in) if you already have an account.
 2. **Set up your organization** when prompted. Keys, usage, and billing belong to the active organization.
@@ -23,7 +122,7 @@ For Cloudflare Workers, use the [Worker example](examples/cloudflare/README.md) 
 
 Client tokens are optional. Only if your backend will issue them to client apps, open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens) and select **Enable client tokens**, then use `createClientToken` on your backend. This is **not required for the server food-search quick start**. Do not put a server key into a client application.
 
-## Install
+### Package installation
 
 In your Node.js application directory, install the package from npm:
 
@@ -33,7 +132,9 @@ npm install @january-ai/server
 
 TypeScript declarations and ESM/CommonJS builds are included. No SDK checkout or build step is needed.
 
-## Quick start
+</details>
+
+## Complete diagnostic example
 
 This example makes one food-search request. It may consume API credits, but does not create food logs, mint tokens, or revoke tokens.
 
@@ -49,7 +150,13 @@ Add `.env` to your application's `.gitignore` (it is already ignored in this rep
 
 The SDK connects to January's production API automatically. The command below uses Node's built-in [environment-file loading](https://nodejs.org/api/cli.html#--env-filefile); no dotenv dependency is needed. Existing environment variables take precedence over the file.
 
-Save this complete example as `quickstart.mjs` in your application directory. The same source is available in [examples/quickstart/main.mjs](examples/quickstart/main.mjs):
+The tested [repository example](examples/quickstart/main.mjs) adds credential
+checks and sanitized error handling to the same request.
+
+<details>
+<summary>Complete diagnostic source</summary>
+
+Save this as `quickstart.mjs` in your application directory:
 
 <!-- quickstart:start -->
 ```js
@@ -113,6 +220,8 @@ try {
 ```
 <!-- quickstart:end -->
 
+</details>
+
 Run it from your application directory:
 
 ```sh
@@ -126,6 +235,9 @@ TypeScript uses the same public imports with included declarations. For CommonJS
 Use an end-user ID derived from your authenticated server session in your application, not the example ID or untrusted request input.
 
 ### TypeScript in a new application
+
+<details>
+<summary>TypeScript project setup</summary>
 
 Create a new TypeScript application and install the SDK:
 
@@ -165,6 +277,8 @@ node --env-file=.env dist/quickstart.mjs
 ```
 
 The `.mts` extension explicitly selects ESM and compiles to `.mjs`; no implicit package-module setting is required. This makes the same one live request as the JavaScript quick start. The [configuration file](examples/quickstart/typescript/tsconfig.json) and source are tested in an installed-package consumer.
+
+</details>
 
 ## Common tasks
 
