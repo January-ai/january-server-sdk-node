@@ -56,6 +56,7 @@ export function createLocalTokenServer({
       return;
     }
 
+    request.on('error', () => response.destroy());
     request.resume();
     if (request.headers.authorization !== `Bearer ${sessionToken}`) {
       json(response, 401, { error: 'unauthorized' });
