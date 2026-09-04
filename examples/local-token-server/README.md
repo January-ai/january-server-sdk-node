@@ -25,8 +25,9 @@ cp .env.example .env
 npm run demo:token-server
 ```
 
-Leave it running while you launch a client demo. It listens on port `8787` and
-prints the client configuration:
+Leave it running while you launch a client demo. It uses port `8787` by default
+and prints the actual client configuration when it starts. If you override
+`PORT`, use the printed URLs instead of the defaults below:
 
 - iOS/Web endpoint: `http://127.0.0.1:8787/api/january/token`
 - Android Emulator endpoint: `http://10.0.2.2:8787/api/january/token`

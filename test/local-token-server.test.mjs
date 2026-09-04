@@ -51,6 +51,16 @@ test('local token server keeps identity and scopes server-controlled', async t =
   assert.equal(preflight.headers.get('access-control-allow-headers'), 'Authorization, Content-Type');
   assert.equal(preflight.headers.get('vary'), 'Origin');
 
+  const revokePreflight = await fetch(`${origin}/api/january/token/revoke`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'http://localhost:3000',
+      'Access-Control-Request-Method': 'POST',
+    },
+  });
+  assert.equal(revokePreflight.status, 204);
+  assert.equal(revokePreflight.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+
   const unauthenticated = await fetch(`${origin}/api/january/token`, { method: 'POST' });
   assert.equal(unauthenticated.status, 401);
   assert.equal(calls.length, 0);

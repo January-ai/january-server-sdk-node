@@ -90,8 +90,9 @@ Leave that command running. It prints the exact values to give the client demo:
 | iOS, React Native on iOS, Web | `http://127.0.0.1:8787/api/january/token` |
 | Android Emulator, React Native on Android | `http://10.0.2.2:8787/api/january/token` |
 
-Use `january-local-demo` as the demo session token. A health check is available
-at `http://127.0.0.1:8787/health`.
+Use `january-local-demo` as the demo session token. The default port is `8787`,
+and a health check is available at `http://127.0.0.1:8787/health`. If you set
+`PORT`, use the actual endpoint URLs printed when the server starts.
 
 This server is for local development and testing only. It binds to
 `127.0.0.1`, always mints tokens for the fixed `january-sdk-demo-user`, ignores
