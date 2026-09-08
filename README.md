@@ -85,14 +85,16 @@ For v1.2 food-log requests, this SDK sends the canonical
 Use the standalone [January Token Relay](https://github.com/January-ai/january-token-relay)
 to run the iOS, Android, React Native, or Web demo before your own backend is
 ready. Clone that repository and run `./start.sh`; it guides you through the API
-key and client-token setup and starts on port `8787`.
+key and client-token setup. The default token endpoint is
+`http://localhost:8787/api/january/client-token`; if you override `HOST` or
+`PORT`, use the exact URL printed by the script.
 
 If localhost is inconvenient, follow the relay's
 [Vercel deployment guide](https://github.com/January-ai/january-token-relay#optional-deploy-to-vercel).
 
-Both relay options are only development stand-ins. In production, put the token endpoint
-inside your authenticated backend, derive the end-user ID from the verified
-session, and choose scopes server-side. The
+Both relay options are only development stand-ins. In production, put the token
+endpoint inside your authenticated backend, derive the end-user ID from the
+verified session, and choose scopes server-side. The
 [Express token-endpoint example](examples/express/README.md) shows that
 production shape using this SDK.
 
