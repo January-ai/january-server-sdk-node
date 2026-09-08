@@ -13,7 +13,6 @@ For Cloudflare Workers, use the [Worker example](examples/cloudflare/README.md) 
 ## Contents
 
 - [Quick start](#quick-start)
-- [Test a client SDK locally](#test-a-client-sdk-locally)
 - [Detailed setup and credentials](#detailed-setup-and-credentials)
 - [Complete diagnostic example](#complete-diagnostic-example)
 - [Common tasks](#common-tasks)
@@ -80,24 +79,6 @@ and run the [Express token-endpoint example](examples/express/README.md).
 For v1.2 food-log requests, this SDK sends the canonical
 `January-End-User-ID` header. The legacy `x-end-user-id` name is deprecated;
 use the canonical name in new integrations.
-
-## Test a client SDK locally
-
-Use the standalone [January Token Relay](https://github.com/January-ai/january-token-relay)
-to run the iOS, Android, React Native, or Web demo before your own backend is
-ready. Clone that repository and run `./start.sh`; it guides you through the API
-key and client-token setup. The default token endpoint is
-`http://localhost:8787/api/january/client-token`; if you override `HOST` or
-`PORT`, use the exact URL printed by the script.
-
-If localhost is inconvenient, follow the relay's
-[Vercel deployment guide](https://github.com/January-ai/january-token-relay#deploy).
-
-Both relay options are only development stand-ins. In production, put the token
-endpoint inside your authenticated backend, derive the end-user ID from the
-verified session, and choose scopes server-side. The
-[Express token-endpoint example](examples/express/README.md) shows that
-production shape using this SDK.
 
 ## Detailed setup and credentials
 
