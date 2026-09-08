@@ -78,7 +78,8 @@ For that flow, [enable client tokens](https://dashboard.january.ai/dashboard/cli
 and run the [Express token-endpoint example](examples/express/README.md).
 
 For v1.2 food-log requests, this SDK sends the canonical
-`January-End-User-ID` header. Do not send the retired `x-end-user-id` name.
+`January-End-User-ID` header. The legacy `x-end-user-id` name is deprecated;
+use the canonical name in new integrations.
 
 ## Test a client SDK locally
 
@@ -90,7 +91,7 @@ key and client-token setup. The default token endpoint is
 `PORT`, use the exact URL printed by the script.
 
 If localhost is inconvenient, follow the relay's
-[Vercel deployment guide](https://github.com/January-ai/january-token-relay#optional-deploy-to-vercel).
+[Vercel deployment guide](https://github.com/January-ai/january-token-relay#deploy).
 
 Both relay options are only development stand-ins. In production, put the token
 endpoint inside your authenticated backend, derive the end-user ID from the
