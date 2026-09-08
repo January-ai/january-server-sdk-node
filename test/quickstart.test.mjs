@@ -101,6 +101,7 @@ test('quick start runs one food search using public package exports and prints a
   assert.equal(url.pathname, fixture.path);
   assert.equal(url.searchParams.get('query'), 'banana');
   assert.equal(request.headers.authorization, `Bearer ${key}`);
+  assert.equal(request.headers['january-end-user-id'], undefined);
   assert.equal(request.headers['x-end-user-id'], undefined);
   // Food search has no timezone header in the contract, even on a scoped view.
   assert.equal(request.headers['x-end-user-timezone'], undefined);

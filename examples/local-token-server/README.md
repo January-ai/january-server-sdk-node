@@ -1,8 +1,11 @@
 # Local client-token server
 
-Run any January client SDK demo without first building your own backend. This
-local-only server uses the January Server SDK to exchange a server API key for
-short-lived client tokens; the API key never enters the client app.
+> This example remains as an SDK-maintainer fixture. For client SDK demos, use
+> the standalone [January Token Relay](https://github.com/January-ai/january-token-relay)
+> and its guided `./start.sh` flow.
+
+This local-only fixture exercises the January Server SDK's token-minting and
+revocation paths; the API key never enters the client app.
 
 ## Before you run it
 

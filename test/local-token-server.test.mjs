@@ -73,7 +73,7 @@ test('local token server keeps identity and scopes server-controlled', async t =
     headers: {
       Authorization: `Bearer ${DEFAULT_DEMO_SESSION_TOKEN}`,
       'Content-Type': 'application/json',
-      'x-end-user-id': 'caller-controlled-user',
+      'January-End-User-ID': 'caller-controlled-user',
     },
     body: JSON.stringify({ endUserId: 'attacker', scopes: ['credits:read'] }),
   });

@@ -13,7 +13,7 @@ For Cloudflare Workers, use the [Worker example](examples/cloudflare/README.md) 
 ## Contents
 
 - [Quick start](#quick-start)
-- [Run any client SDK demo locally](#run-any-client-sdk-demo-locally)
+- [Test a client SDK locally](#test-a-client-sdk-locally)
 - [Detailed setup and credentials](#detailed-setup-and-credentials)
 - [Complete diagnostic example](#complete-diagnostic-example)
 - [Common tasks](#common-tasks)
@@ -77,48 +77,27 @@ Client tokens are needed only when your backend serves a browser or mobile app.
 For that flow, [enable client tokens](https://dashboard.january.ai/dashboard/client-tokens)
 and run the [Express token-endpoint example](examples/express/README.md).
 
-## Run any client SDK demo locally
+For v1.2 food-log requests, this SDK sends the canonical
+`January-End-User-ID` header. The legacy `x-end-user-id` name is deprecated;
+use the canonical name in new integrations.
 
-This is the fastest way to try the iOS, Android, React Native, or Web demo
-before your own backend is ready. The local server uses this SDK to exchange
-your server API key for short-lived client tokens. The API key stays in the
-server process and is never placed in the demo app.
+## Test a client SDK locally
 
-First complete both dashboard steps—they are on separate pages:
+Use the standalone [January Token Relay](https://github.com/January-ai/january-token-relay)
+to run the iOS, Android, React Native, or Web demo before your own backend is
+ready. Clone that repository and run `./start.sh`; it guides you through the API
+key and client-token setup. The default token endpoint is
+`http://localhost:8787/api/january/client-token`; if you override `HOST` or
+`PORT`, use the exact URL printed by the script.
 
-1. [Sign up](https://dashboard.january.ai/sign-up) or
-   [sign in](https://dashboard.january.ai/sign-in), then open
-   **API keys → Create key** and copy the full `sk-…` value.
-2. Open [Client tokens](https://dashboard.january.ai/dashboard/client-tokens)
-   and select **Enable client tokens**.
+If localhost is inconvenient, follow the relay's
+[Vercel deployment guide](https://github.com/January-ai/january-token-relay#deploy).
 
-Then, from this repository:
-
-```sh
-npm ci
-cp .env.example .env
-# Edit .env and set JANUARY_API_KEY to the key you just created.
-npm run demo:token-server
-```
-
-Leave that command running. It prints the exact values to give the client demo:
-
-| Demo | Token endpoint |
-| --- | --- |
-| iOS, React Native on iOS, Web | `http://127.0.0.1:8787/api/january/token` |
-| Android Emulator, React Native on Android | `http://10.0.2.2:8787/api/january/token` |
-
-Use `january-local-demo` as the demo session token. The default port is `8787`,
-and a health check is available at `http://127.0.0.1:8787/health`. If you set
-`PORT`, use the actual endpoint URLs printed when the server starts.
-
-This server is for local development and testing only. It binds to
-`127.0.0.1`, always mints tokens for the fixed `january-sdk-demo-user`, ignores
-client-supplied identities and scopes, and never logs credentials. In
-production, your authenticated backend must derive the end-user ID from its own
-session and choose the allowed scopes. See the
-[local server guide](examples/local-token-server/README.md) and the
-[Express production-shaped example](examples/express/README.md).
+Both relay options are only development stand-ins. In production, put the token
+endpoint inside your authenticated backend, derive the end-user ID from the
+verified session, and choose scopes server-side. The
+[Express token-endpoint example](examples/express/README.md) shows that
+production shape using this SDK.
 
 ## Detailed setup and credentials
 
