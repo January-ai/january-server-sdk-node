@@ -38,7 +38,7 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
       assert.ok(fixture, 'Only contract operations are permitted');
       const operationId = fixture.operationId;
       requests.push({ operationId, method: req.method, url, headers: req.headers, body });
-      const userId = req.headers['x-end-user-id'];
+      const userId = req.headers['january-end-user-id'];
       if (req.headers.authorization === `Bearer ${syntheticToken}`) {
         assert.equal(operationId, 'searchFoods');
         assert.equal(tokenUsers.size, 1);

@@ -77,6 +77,9 @@ Client tokens are needed only when your backend serves a browser or mobile app.
 For that flow, [enable client tokens](https://dashboard.january.ai/dashboard/client-tokens)
 and run the [Express token-endpoint example](examples/express/README.md).
 
+For v1.2 food-log requests, this SDK sends the canonical
+`January-End-User-ID` header. Do not send the retired `x-end-user-id` name.
+
 ## Test a client SDK locally
 
 Use the standalone [January Token Relay](https://github.com/January-ai/january-token-relay)
@@ -84,7 +87,10 @@ to run the iOS, Android, React Native, or Web demo before your own backend is
 ready. Clone that repository and run `./start.sh`; it guides you through the API
 key and client-token setup and starts on port `8787`.
 
-The relay is only a development stand-in. In production, put the token endpoint
+If localhost is inconvenient, follow the relay's
+[Vercel deployment guide](https://github.com/January-ai/january-token-relay#optional-deploy-to-vercel).
+
+Both relay options are only development stand-ins. In production, put the token endpoint
 inside your authenticated backend, derive the end-user ID from the verified
 session, and choose scopes server-side. The
 [Express token-endpoint example](examples/express/README.md) shows that
