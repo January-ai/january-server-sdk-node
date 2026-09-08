@@ -39,11 +39,16 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
       const operationId = fixture.operationId;
       requests.push({ operationId, method: req.method, url, headers: req.headers, body });
       const userId = req.headers['january-end-user-id'];
+      const requiresUserId = Object.hasOwn(fixture.request?.parameters?.header ?? {}, 'January-End-User-ID');
       if (req.headers.authorization === `Bearer ${syntheticToken}`) {
         assert.equal(operationId, 'searchFoods');
         assert.equal(tokenUsers.size, 1);
       } else assert.equal(req.headers.authorization, `Bearer ${syntheticKey}`);
-      if (userId) assert.match(userId, /^sdk-e2e-node-[0-9a-f-]{36}$/);
+      if (requiresUserId) {
+        assert.match(userId ?? '', /^sdk-e2e-node-[0-9a-f-]{36}$/, `${operationId} requires January-End-User-ID`);
+      } else if (userId) {
+        assert.match(userId, /^sdk-e2e-node-[0-9a-f-]{36}$/);
+      }
       if (operationId === 'createClientToken') {
         assert.match(body.end_user_id, /^sdk-e2e-node-[0-9a-f-]{36}$/); assert.ok(body.end_user_id.length <= 64);
         tokenUsers.add(body.end_user_id);
