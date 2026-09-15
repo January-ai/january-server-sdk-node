@@ -46,37 +46,26 @@ export const schemas: Record<string, Schema> = {
         "description": "Servings to read the nutrition against. Empty when the recommender returned none — the key itself is always present.",
         "type": "array",
         "items": {
-          "ref": "AlternativeServing"
+          "ref": "ServingSummary"
         },
         "publicName": "servings"
       }
     }
   },
-  "AlternativeServing": {
+  "AnalysisReasoning": {
     "type": "object",
     "required": [
-      "id",
-      "quantity",
-      "unit"
+      "effort"
     ],
     "properties": {
-      "id": {
-        "description": "Null only when the producer sent a serving with no id.",
+      "effort": {
+        "description": "`none` uses the standard analyzer; `xhigh` uses the reasoning-based analyzer.",
         "type": "string",
-        "nullable": true,
-        "publicName": "id"
-      },
-      "quantity": {
-        "description": "How much of `unit` this serving is; null when the producer reported none.",
-        "type": "number",
-        "nullable": true,
-        "publicName": "quantity"
-      },
-      "unit": {
-        "description": "Null only when the producer sent a serving with no unit.",
-        "type": "string",
-        "nullable": true,
-        "publicName": "unit"
+        "enum": [
+          "none",
+          "xhigh"
+        ],
+        "publicName": "effort"
       }
     }
   },
@@ -382,8 +371,9 @@ export const schemas: Record<string, Schema> = {
       "id",
       "name",
       "brand_name",
-      "nutrients",
-      "servings"
+      "quantity",
+      "serving",
+      "nutrients"
     ],
     "properties": {
       "id": {
@@ -404,52 +394,29 @@ export const schemas: Record<string, Schema> = {
         "nullable": true,
         "publicName": "brandName"
       },
-      "nutrients": {
-        "ref": "NutritionFacts",
-        "publicName": "nutrients"
-      },
-      "servings": {
-        "description": "Never empty: every detection producer guarantees at least one serving.",
-        "type": "array",
-        "items": {
-          "ref": "DetectedServing"
-        },
-        "publicName": "servings"
-      }
-    }
-  },
-  "DetectedServing": {
-    "type": "object",
-    "required": [
-      "id",
-      "quantity",
-      "unit",
-      "selected_quantity"
-    ],
-    "properties": {
-      "id": {
-        "description": "Null only when the producer sent a serving with no id.",
-        "type": "string",
-        "nullable": true,
-        "publicName": "id"
-      },
       "quantity": {
-        "description": "How much of `unit` this serving is; null when the producer reported none.",
+        "description": "Number of catalog servings consumed, ready to use as food-log quantity. For 40 g from a 100 g serving this is 0.4. Null when the producer supplied no usable portion.",
         "type": "number",
         "nullable": true,
         "publicName": "quantity"
       },
-      "unit": {
-        "description": "Null only when the producer sent a serving with no unit.",
-        "type": "string",
-        "nullable": true,
-        "publicName": "unit"
+      "serving": {
+        "description": "Selected catalog serving definition; its quantity is the size of one serving, not the amount eaten.",
+        "allOf": [
+          {
+            "ref": "ServingSummary"
+          }
+        ],
+        "publicName": "serving"
       },
-      "selected_quantity": {
-        "description": "Quantity parsed from the text ('2 cups' → 2); null on image analyses. Advisory — corrections reads the serving's own quantity.",
-        "type": "number",
-        "nullable": true,
-        "publicName": "selectedQuantity"
+      "nutrients": {
+        "description": "Nutrition for the consumed portion, already scaled by quantity.",
+        "allOf": [
+          {
+            "ref": "NutritionFacts"
+          }
+        ],
+        "publicName": "nutrients"
       }
     }
   },
@@ -502,7 +469,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "message"
       },
       "code": {
-        "description": "A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.\n\nAny request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `payload_too_large` (413), `rate_limited` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 409 or 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.\n\nClient tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.\n\nThree more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called a food-log operation with no January-End-User-ID header), `date_range_too_large` (400 — a food-log date range past the documented maximum), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).\n\n`POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.\n\nRetry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Two more the status code alone gets wrong: `credit_limit_exceeded` is a 429 that **must never be retried** — the allowance returns next calendar month, so a client that backs off on every 429 will spin until then; and `token_expired` is refreshed, not retried — mint a new token, then retry once.\n\nNew codes may be added over time; treat an unknown code according to its HTTP status class.",
+        "description": "A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.\n\nAny request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `payload_too_large` (413), `rate_limited` (429), `request_limit_exceeded` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 409 or 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.\n\n`cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.\n\nClient tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.\n\nThree more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called a food-log operation with no January-End-User-ID header), `date_range_too_large` (400 — a food-log date range past the documented maximum), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).\n\n`POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.\n\nRetry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Three more the status code alone gets wrong. **Two 429s must never be retried**, because both reopen only at the start of the next calendar month: `credit_limit_exceeded` (the monthly credit allowance) and `request_limit_exceeded` (the monthly request allowance). A client that backs off on every 429 will spin until then; neither sends `Retry-After`, and the message names the reset instant — `GET /v1.2/credits` returns it as the resets_at field. `rate_limited` is the 429 that *is* worth retrying: a per-endpoint limit, or the rolling 24-hour burst guard over the monthly ceiling, so its window is at most a day. And `token_expired` is refreshed, not retried — mint a new token, then retry once.\n\nNew codes may be added over time; treat an unknown code according to its HTTP status class.",
         "type": "string",
         "publicName": "code"
       }
@@ -602,6 +569,162 @@ export const schemas: Record<string, Schema> = {
         "minimum": 0,
         "maximum": 10000,
         "publicName": "quantity"
+      }
+    }
+  },
+  "FoodLogSummary": {
+    "type": "object",
+    "required": [
+      "group_by",
+      "week_start",
+      "timezone",
+      "start_date",
+      "end_date",
+      "buckets",
+      "totals",
+      "average_per_logged_day"
+    ],
+    "properties": {
+      "group_by": {
+        "description": "The bucket size used, echoing the request.",
+        "type": "string",
+        "enum": [
+          "day",
+          "week"
+        ],
+        "publicName": "groupBy"
+      },
+      "week_start": {
+        "description": "The weekday week buckets begin on. Always present; `null` when `group_by=day`, where it does not apply.",
+        "type": "string",
+        "nullable": true,
+        "enum": [
+          "monday",
+          "sunday"
+        ],
+        "publicName": "weekStart"
+      },
+      "timezone": {
+        "description": "The IANA timezone the buckets were cut in — the canonical spelling of what was requested.",
+        "type": "string",
+        "publicName": "timezone"
+      },
+      "start_date": {
+        "description": "First local calendar date of the summarized range, echoing the request.",
+        "type": "string",
+        "format": "date",
+        "publicName": "startDate"
+      },
+      "end_date": {
+        "description": "Last local calendar date of the summarized range, inclusive.",
+        "type": "string",
+        "format": "date",
+        "publicName": "endDate"
+      },
+      "buckets": {
+        "description": "The buckets tiling the range, in chronological order and covering it end to end — a day or week with no logs is returned with zero counts rather than skipped.",
+        "type": "array",
+        "items": {
+          "ref": "FoodLogSummaryBucket"
+        },
+        "publicName": "buckets"
+      },
+      "totals": {
+        "ref": "FoodLogSummaryTotals",
+        "publicName": "totals"
+      },
+      "average_per_logged_day": {
+        "ref": "FoodLogSummaryAverage",
+        "publicName": "averagePerLoggedDay"
+      }
+    }
+  },
+  "FoodLogSummaryAverage": {
+    "type": "object",
+    "required": [
+      "nutrients"
+    ],
+    "properties": {
+      "nutrients": {
+        "description": "Totals divided by `totals.days_with_logs` — an average over days that were logged, not over days in the range. `{}` when none were.",
+        "allOf": [
+          {
+            "ref": "NutritionFacts"
+          }
+        ],
+        "publicName": "nutrients"
+      }
+    }
+  },
+  "FoodLogSummaryBucket": {
+    "type": "object",
+    "required": [
+      "start_date",
+      "end_date",
+      "logs_count",
+      "days_with_logs",
+      "nutrients"
+    ],
+    "properties": {
+      "start_date": {
+        "description": "First local calendar date this bucket covers. Clipped to the requested range, so the first week bucket may be partial.",
+        "type": "string",
+        "format": "date",
+        "publicName": "startDate"
+      },
+      "end_date": {
+        "description": "Last local calendar date this bucket covers, inclusive. Equal to start_date when grouping by day.",
+        "type": "string",
+        "format": "date",
+        "publicName": "endDate"
+      },
+      "logs_count": {
+        "description": "How many logs fall in this bucket.",
+        "type": "integer",
+        "publicName": "logsCount"
+      },
+      "days_with_logs": {
+        "description": "How many distinct local calendar dates in this bucket carry at least one log.",
+        "type": "integer",
+        "publicName": "daysWithLogs"
+      },
+      "nutrients": {
+        "description": "Nutrients summed over this bucket. A key is absent when no value was available; `{}` means nothing could be totalled — read `logs_count` to tell an empty bucket from one whose logs were unresolvable.",
+        "allOf": [
+          {
+            "ref": "NutritionFacts"
+          }
+        ],
+        "publicName": "nutrients"
+      }
+    }
+  },
+  "FoodLogSummaryTotals": {
+    "type": "object",
+    "required": [
+      "logs_count",
+      "days_with_logs",
+      "nutrients"
+    ],
+    "properties": {
+      "logs_count": {
+        "description": "Logs in the whole range.",
+        "type": "integer",
+        "publicName": "logsCount"
+      },
+      "days_with_logs": {
+        "description": "Distinct local calendar dates in the range that carry at least one log.",
+        "type": "integer",
+        "publicName": "daysWithLogs"
+      },
+      "nutrients": {
+        "description": "Nutrients summed over the whole range, with the same sparseness as a bucket’s.",
+        "allOf": [
+          {
+            "ref": "NutritionFacts"
+          }
+        ],
+        "publicName": "nutrients"
       }
     }
   },
@@ -1483,6 +1606,15 @@ export const schemas: Record<string, Schema> = {
         "description": "The food photo — the food itself or a packaged product's label — as an http(s) URL or a base64 data URI (data:image/jpeg;base64,…). Formats: JPG, PNG, WEBP, and non-animated GIF. Around 1,024 px on the shorter side is enough for reliable results (a recommendation, not a validation rule). A URL must be publicly fetchable server-side — hosts that block hotlinking or require a login cannot be read — and has no enforced size cap, though very large files slow the analysis and can time out. Base64 must be a complete data URI and fit the 5 MB request-body cap, so keep raw images under ~3.5 MB before encoding (base64 inflates by ~33%). Prefer the URL when the image is already hosted.",
         "type": "string",
         "publicName": "image"
+      },
+      "reasoning": {
+        "description": "Controls analysis effort. Omit it or set `effort` to `none` to use the standard analyzer; `xhigh` uses the reasoning-based analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost.",
+        "allOf": [
+          {
+            "ref": "AnalysisReasoning"
+          }
+        ],
+        "publicName": "reasoning"
       }
     }
   },
@@ -1616,6 +1748,34 @@ export const schemas: Record<string, Schema> = {
         "type": "boolean",
         "nullable": true,
         "publicName": "isPrimary"
+      }
+    }
+  },
+  "ServingSummary": {
+    "type": "object",
+    "required": [
+      "id",
+      "quantity",
+      "unit"
+    ],
+    "properties": {
+      "id": {
+        "description": "Null only when the producer sent a serving with no id.",
+        "type": "string",
+        "nullable": true,
+        "publicName": "id"
+      },
+      "quantity": {
+        "description": "How much of `unit` this serving is; null when the producer reported none.",
+        "type": "number",
+        "nullable": true,
+        "publicName": "quantity"
+      },
+      "unit": {
+        "description": "Null only when the producer sent a serving with no unit.",
+        "type": "string",
+        "nullable": true,
+        "publicName": "unit"
       }
     }
   },

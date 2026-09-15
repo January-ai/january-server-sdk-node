@@ -66,6 +66,10 @@ export class FoodLogsResource<Scoped extends boolean = false> {
   list(request: UserRequest<Models.ListFoodLogsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.ListFoodLogsResponse>> {
     return this.runtime.request(operations["listFoodLogs"]!, { ...request, ...this.context }, options);
   }
+  /** Contract operation: getFoodLogSummary. */
+  getSummary(request: UserRequest<Models.GetFoodLogSummaryRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodLogSummary>> {
+    return this.runtime.request(operations["getFoodLogSummary"]!, { ...request, ...this.context }, options);
+  }
   /** Contract operation: getFoodLog. */
   get(request: UserRequest<Models.GetFoodLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.FoodLog>> {
     return this.runtime.request(operations["getFoodLog"]!, { ...request, ...this.context }, options);

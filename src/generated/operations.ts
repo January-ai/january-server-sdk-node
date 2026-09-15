@@ -171,7 +171,19 @@ export const operations: Record<string, Operation> = {
         "schema": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 40
+          "maximum": 50
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "offset",
+        "publicName": "offset",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 0
         },
         "style": "form",
         "explode": true
@@ -641,6 +653,15 @@ export const operations: Record<string, Operation> = {
           "description": "The food photo — the food itself or a packaged product's label — as an http(s) URL or a base64 data URI (data:image/jpeg;base64,…). Formats: JPG, PNG, WEBP, and non-animated GIF. Around 1,024 px on the shorter side is enough for reliable results (a recommendation, not a validation rule). A URL must be publicly fetchable server-side — hosts that block hotlinking or require a login cannot be read — and has no enforced size cap, though very large files slow the analysis and can time out. Base64 must be a complete data URI and fit the 5 MB request-body cap, so keep raw images under ~3.5 MB before encoding (base64 inflates by ~33%). Prefer the URL when the image is already hosted.",
           "type": "string",
           "publicName": "image"
+        },
+        "reasoning": {
+          "description": "Controls analysis effort. Omit it or set `effort` to `none` to use the standard analyzer; `xhigh` uses the reasoning-based analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost.",
+          "allOf": [
+            {
+              "ref": "AnalysisReasoning"
+            }
+          ],
+          "publicName": "reasoning"
         }
       }
     },
@@ -879,6 +900,107 @@ export const operations: Record<string, Operation> = {
       "200": {
         "schema": {
           "ref": "ListFoodLogsResponse"
+        },
+        "headers": []
+      }
+    }
+  },
+  "getFoodLogSummary": {
+    "operationId": "getFoodLogSummary",
+    "method": "GET",
+    "path": "/v1.2/food-logs/summary",
+    "resource": "foodLogs",
+    "publicMethod": "getSummary",
+    "audience": "shared",
+    "parameterNames": {
+      "January-End-User-ID": "endUserId",
+      "x-end-user-id": "endUserId",
+      "x-end-user-timezone": "endUserTimezone"
+    },
+    "retryNever": false,
+    "retryAmbiguous": true,
+    "parameters": [
+      {
+        "name": "January-End-User-ID",
+        "publicName": "endUserId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "ref": "PartnerUserId"
+        },
+        "style": "simple",
+        "explode": false
+      },
+      {
+        "name": "start_date",
+        "publicName": "startDate",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "end_date",
+        "publicName": "endDate",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "timezone",
+        "publicName": "timezone",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "group_by",
+        "publicName": "groupBy",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "day",
+            "week"
+          ]
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "week_start",
+        "publicName": "weekStart",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "monday",
+            "sunday"
+          ]
+        },
+        "style": "form",
+        "explode": true
+      }
+    ],
+    "responses": {
+      "200": {
+        "schema": {
+          "ref": "FoodLogSummary"
         },
         "headers": []
       }
