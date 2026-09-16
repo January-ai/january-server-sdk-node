@@ -267,7 +267,7 @@ Shared resources are available on the root client and on `january.forUser(...)`.
 | `foods` | `search`, `autocomplete`, `suggestAlternatives`, `lookupBarcode`, `get` |
 | `restaurants` | `search`, `getMenuItems`, `searchMenuItems` |
 | `foodAnalysis` | `analyzePhoto`, `analyzeDescription`, `correct` |
-| `foodLogs` | `list`, `get`, `create`, `update`, `delete` |
+| `foodLogs` | `list`, `get`, `getSummary`, `create`, `update`, `delete` |
 | `glucose` | `predict` |
 
 These fragments assume `user` from the quick start. Each awaited call uses the API:
@@ -387,7 +387,7 @@ To run the repository examples and tests, follow the [contributor setup](CONTRIB
 | Installed package checks | `npm run test:distribution` | Loopback fixtures only |
 | Full live E2E | `npm run test:e2e` | Explicit opt-in; billable calls and synthetic writes |
 
-The full live workflow is not the quick start. It exercises all 20 operations, including token creation/revocation and temporary food-log creation/deletion. Read [live testing and cleanup](docs/live-testing.md) before running it. Default tests and CI never load production keys.
+The full live workflow is not the quick start. It exercises all 21 operations, including token creation/revocation and temporary food-log creation/deletion. Read [live testing and cleanup](docs/live-testing.md) before running it. Default tests and CI never load production keys.
 
 ## Distribution and releases
 
