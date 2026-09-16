@@ -1,5 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from "express";
-import { January } from "@january-ai/server";
+import { January } from "@januaryai/server";
 
 const secretKey = process.env.JANUARY_API_KEY?.trim();
 if (!secretKey) {

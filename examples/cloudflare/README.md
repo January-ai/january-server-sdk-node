@@ -1,6 +1,6 @@
 # Cloudflare Worker token endpoint example
 
-`worker.ts` shows how an authenticated Worker calls `@january-ai/server` to
+`worker.ts` shows how an authenticated Worker calls `@januaryai/server` to
 return a short-lived January client token.
 
 ```sh

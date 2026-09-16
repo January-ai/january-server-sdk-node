@@ -1,5 +1,5 @@
 import type { APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
-import { January } from "@january-ai/server";
+import { January } from "@januaryai/server";
 
 const secretKey = process.env.JANUARY_API_KEY?.trim();
 if (!secretKey) {

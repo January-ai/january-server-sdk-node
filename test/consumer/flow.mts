@@ -1,4 +1,4 @@
-import { January, FoodPortion, FoodPortionError, type JanuaryUserClient, type FoodPortionOptions, type FoodSearchResults, type PartnerUserContext, type PredictGlucoseRequest } from '@january-ai/server';
+import { January, FoodPortion, FoodPortionError, type JanuaryUserClient, type FoodPortionOptions, type FoodSearchResults, type PartnerUserContext, type PredictGlucoseRequest } from '@januaryai/server';
 
 export async function flow(baseUrl: string) {
   const client = new January({ secretKey: 'sk-local-only', baseUrl });

@@ -1,4 +1,4 @@
-import { January } from "@january-ai/server";
+import { January } from "@januaryai/server";
 
 interface Env {
   JANUARY_API_KEY: string;

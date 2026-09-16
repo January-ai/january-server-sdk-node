@@ -3,11 +3,11 @@
 ## Prepare a local photo (Node.js)
 
 ```sh
-npm install @january-ai/server sharp
+npm install @januaryai/server sharp
 ```
 
 ```ts
-import { prepareImage } from '@january-ai/server/images';
+import { prepareImage } from '@januaryai/server/images';
 
 const image = await prepareImage('./lunch.jpg');
 const result = await user.foodAnalysis.analyzePhoto({ image });
@@ -33,7 +33,7 @@ URLs/data URIs are always unchanged; January must be able to download public URL
 ## Handle specific failures
 
 ```ts
-import { CreditLimitExceededError, RateLimitError, JanuaryApiError, JanuaryResponseError } from '@january-ai/server';
+import { CreditLimitExceededError, RateLimitError, JanuaryApiError, JanuaryResponseError } from '@januaryai/server';
 
 try {
   await user.foods.search({ query: 'banana' });

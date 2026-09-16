@@ -1,7 +1,7 @@
 # AWS Lambda token handler example
 
 `handler.ts` shows how an authenticated Lambda handler calls
-`@january-ai/server` to return a short-lived January client token.
+`@januaryai/server` to return a short-lived January client token.
 
 ```sh
 npm install

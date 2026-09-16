@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@january-ai/server": "file:../.."
+    "@januaryai/server": "file:../.."
   },
   "devDependencies": {
     "@types/aws-lambda": "8.10.152",

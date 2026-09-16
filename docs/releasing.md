@@ -1,6 +1,6 @@
 # Maintainer release checklist
 
-The package is distributed through npm as `@january-ai/server`, with typed ESM and
+The package is distributed through npm as `@januaryai/server`, with typed ESM and
 CommonJS entry points. Repository visibility is separate from npm distribution;
 release tooling never changes GitHub visibility.
 
@@ -11,7 +11,7 @@ release tooling never changes GitHub visibility.
    validates the version and explicit opt-in, tests and packs the package, and
    creates a **draft** GitHub release with the exact tarball for review.
 4. Download that reviewed tarball and publish it with an authorized npm identity:
-   `npm publish ./january-ai-server-<version>.tgz --access public`.
+   `npm publish ./januaryai-server-<version>.tgz --access public`.
 5. Verify installation from npm before publishing the GitHub release notes.
 
 This workflow does not publish to npm automatically. No registry credentials belong

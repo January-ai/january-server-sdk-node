@@ -9,7 +9,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@january-ai/server": "file:../.."
+    "@januaryai/server": "file:../.."
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260828.1",
