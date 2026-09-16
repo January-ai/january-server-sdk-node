@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { January, JanuaryResponseError, JanuaryValidationError } from "@january-ai/server";
+import { January, JanuaryResponseError, JanuaryValidationError } from "@januaryai/server";
 
 const requests = [];
 let responseBody = { token: "ct-fixture", expires_in: 300, expires_at: "2026-09-01T12:05:00Z", end_user_id: "user", scopes: ["foods:read"], future_field: { enabled: true } };

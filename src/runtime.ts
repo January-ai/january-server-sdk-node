@@ -203,7 +203,7 @@ export class HttpRuntime {
     const redact = redactor([this.#secret, ...strings(request).filter(s => s.length >= 4)].sort((a, b) => b.length - a.length));
     let path = operation.path;
     const query = new URLSearchParams();
-    const headers: Record<string, string> = { authorization: `Bearer ${this.#secret}`, accept: 'application/json', 'user-agent': '@january-ai/server/0.0.0-local' };
+    const headers: Record<string, string> = { authorization: `Bearer ${this.#secret}`, accept: 'application/json', 'user-agent': '@januaryai/server/0.0.0-local' };
     for (const p of operation.parameters) {
       const value = request[p.publicName];
       if (value === undefined) { if (p.required) invalid(p.publicName); continue; }

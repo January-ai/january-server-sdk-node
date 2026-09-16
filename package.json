@@ -1,5 +1,5 @@
 {
-  "name": "@january-ai/server",
+  "name": "@januaryai/server",
   "version": "0.1.0",
   "description": "January trusted-backend SDK generated from the server contract development profile",
   "type": "module",

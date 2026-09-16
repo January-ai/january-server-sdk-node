@@ -68,11 +68,11 @@ try {
   assert.equal(count, 14); assert.equal(revocations, 2);
   // The optional native-image peer is not installed in this consumer. Both
   // package formats must still load the helper and forward URLs unchanged.
-  for (const loader of ["const {prepareImage}=await import('@january-ai/server/images');", "const {prepareImage}=require('@january-ai/server/images');"]) {
+  for (const loader of ["const {prepareImage}=await import('@januaryai/server/images');", "const {prepareImage}=require('@januaryai/server/images');"]) {
     const mode=loader.includes('await import')?'module':'commonjs';
     run(process.execPath,['--input-type='+mode,'-e',loader+"(async()=>{if(await prepareImage('https://example.invalid/food.jpg')!=='https://example.invalid/food.jpg')throw Error('URL changed')})().catch(()=>process.exit(1));"],consumer);
   }
-  const browser = spawnSync(process.execPath, ['--conditions=browser', '--input-type=module', '-e', "import '@january-ai/server'"], { cwd: consumer, encoding: 'utf8' });
+  const browser = spawnSync(process.execPath, ['--conditions=browser', '--input-type=module', '-e', "import '@januaryai/server'"], { cwd: consumer, encoding: 'utf8' });
   assert.notEqual(browser.status, 0); assert.match(browser.stderr, /Node.js-only/);
   console.log(`Installed ESM + CommonJS consumers and JavaScript + TypeScript README quick starts passed: 14 local HTTP calls, exactly one revocation per compatibility flow. Artifact: ${join(consumer, packed.filename)}`);
 } finally {

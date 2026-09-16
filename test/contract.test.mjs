@@ -199,7 +199,7 @@ test('unknown enum/fields, uncapped credits, omitted/null values, and invalid in
 });
 
 test('package refuses browser resolution', () => {
-  const result = spawnSync(process.execPath, ['--conditions=browser', '--input-type=module', '-e', "import '@january-ai/server'"], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, ['--conditions=browser', '--input-type=module', '-e', "import '@januaryai/server'"], { encoding: 'utf8' });
   assert.notEqual(result.status, 0); assert.match(result.stderr, /Node.js-only/);
 });
 

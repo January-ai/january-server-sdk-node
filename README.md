@@ -41,13 +41,13 @@ JANUARY_API_KEY=sk-your-server-api-key
 ### 2. Install, connect, and make the first request
 
 ```sh
-npm install @january-ai/server
+npm install @januaryai/server
 ```
 
 Save this as `quickstart.mjs`:
 
 ```js
-import { January } from '@january-ai/server';
+import { January } from '@januaryai/server';
 
 const january = new January({
   secretKey: process.env.JANUARY_API_KEY,
@@ -105,7 +105,7 @@ Client tokens are optional. Only if your backend will issue them to client apps,
 In your Node.js application directory, install the package from npm:
 
 ```sh
-npm install @january-ai/server
+npm install @januaryai/server
 ```
 
 TypeScript declarations and ESM/CommonJS builds are included. No SDK checkout or build step is needed.
@@ -140,7 +140,7 @@ Save this as `quickstart.mjs` in your application directory:
 ```js
 import {
   January, JanuaryApiError, JanuaryConfigurationError, JanuaryValidationError, JanuaryTransportError,
-} from '@january-ai/server';
+} from '@januaryai/server';
 
 async function main() {
   const secretKey = process.env.JANUARY_API_KEY?.trim();
@@ -208,7 +208,7 @@ node --env-file=.env quickstart.mjs
 
 Success prints the number of foods in this response and the first food's name. An empty result prints `No foods found.`; exact counts and names depend on the API response. A missing key exits with code 2 before any request; a failed request exits with code 1 and a safe diagnostic.
 
-TypeScript uses the same public imports with included declarations. For CommonJS, use `const { January } = require('@january-ai/server');` and make calls inside an async function.
+TypeScript uses the same public imports with included declarations. For CommonJS, use `const { January } = require('@januaryai/server');` and make calls inside an async function.
 
 Use an end-user ID derived from your authenticated server session in your application, not the example ID or untrusted request input.
 
@@ -223,7 +223,7 @@ Create a new TypeScript application and install the SDK:
 mkdir january-ts-example
 cd january-ts-example
 npm init -y
-npm install @january-ai/server
+npm install @januaryai/server
 npm install --save-dev typescript@7.0.2 @types/node@22
 ```
 
@@ -288,7 +288,7 @@ Use string `foodId`, string `barcode`, `query` for description analysis, an imag
 This fragment assumes a hydrated `food` and a scoped `user`:
 
 ```ts
-import { FoodPortion } from '@january-ai/server';
+import { FoodPortion } from '@januaryai/server';
 
 const portion = FoodPortion.from(food, { quantity: 2 });
 console.log(portion.nutrition, portion.totalWeightGrams);
@@ -391,7 +391,7 @@ The full live workflow is not the quick start. It exercises all 21 operations, i
 
 ## Distribution and releases
 
-The npm package `@january-ai/server` includes compiled ESM and CommonJS JavaScript plus TypeScript declarations. Commit your application's lockfile to keep dependency versions reproducible. See [Contributing](CONTRIBUTING.md#local-verification) for package build and installation checks.
+The npm package `@januaryai/server` includes compiled ESM and CommonJS JavaScript plus TypeScript declarations. Commit your application's lockfile to keep dependency versions reproducible. See [Contributing](CONTRIBUTING.md#local-verification) for package build and installation checks.
 
 Maintainers create a `vX.Y.Z` tag whose version exactly matches `package.json`
 (for example, package version `0.1.0` requires tag `v0.1.0`). The release

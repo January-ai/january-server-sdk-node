@@ -2,7 +2,7 @@
 
 This is the runnable Node.js demo server. It represents a partner backend and
 exposes `POST /api/january/token`. The route derives the January end-user ID
-from authenticated server context and calls `@january-ai/server`; a real app
+from authenticated server context and calls `@januaryai/server`; a real app
 must replace the demo header with its verified session or JWT.
 
 ## Run the example

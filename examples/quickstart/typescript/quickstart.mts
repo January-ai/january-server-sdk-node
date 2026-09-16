@@ -1,6 +1,6 @@
 import {
   January, JanuaryApiError, JanuaryConfigurationError, JanuaryValidationError, JanuaryTransportError,
-} from '@january-ai/server';
+} from '@januaryai/server';
 
 async function main() {
   const secretKey = process.env.JANUARY_API_KEY?.trim();

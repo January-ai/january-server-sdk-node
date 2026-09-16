@@ -23,7 +23,7 @@ test('README quick start is the exact runnable example', async () => {
   assert.match(readme, /https:\/\/dashboard\.january\.ai\/sign-up/);
   assert.match(readme, /https:\/\/dashboard\.january\.ai\/dashboard\/client-tokens/);
   assert.match(readme, /mailto:support@january\.ai/);
-  assert.ok(readme.includes('npm install @january-ai/server'));
+  assert.ok(readme.includes('npm install @januaryai/server'));
   assert.ok(readme.includes('node --env-file=.env quickstart.mjs'));
   assert.ok(readme.includes('[.env.example](.env.example)'));
   assert.ok(readme.includes('JanuaryValidationError'));

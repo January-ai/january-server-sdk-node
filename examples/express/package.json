@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@january-ai/server": "file:../..",
+    "@januaryai/server": "file:../..",
     "express": "5.1.0"
   },
   "devDependencies": {

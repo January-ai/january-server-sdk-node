@@ -1,4 +1,4 @@
-import { January, ClientScope, type ClientToken } from "@january-ai/server";
+import { January, ClientScope, type ClientToken } from "@januaryai/server";
 
 const client = new January({ secretKey: "fixture" });
 const result: Promise<ClientToken> = client.clientTokens.create({
