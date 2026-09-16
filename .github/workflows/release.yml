@@ -1,4 +1,4 @@
-name: Node release verification
+name: Node release
 on:
   push:
     tags: ['v*']
@@ -22,19 +22,52 @@ jobs:
         with:
           name: npm-package
           path: dist/*.tgz
-  draft:
+  publish:
     needs: verify
     runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Install npm with trusted-publishing support
+        run: npm install -g npm@latest
       - uses: actions/download-artifact@v4
         with:
           name: npm-package
           path: release
-      - name: Create draft for maintainer review
+      - name: Publish to npm with provenance
+        # Authenticates through the trusted publisher configured on npmjs.com for
+        # this repository and workflow (GitHub OIDC); no npm token is stored anywhere.
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          if npm view "@januaryai/server@$version" version >/dev/null 2>&1; then
+            echo "@januaryai/server@$version is already on npm"
+          else
+            npm publish release/*.tgz --access public --provenance
+          fi
+      - name: Verify the version from the public registry
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          for attempt in {1..30}; do
+            if [[ "$(npm view "@januaryai/server@$version" version 2>/dev/null || true)" == "$version" ]]; then
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "@januaryai/server@$version did not become available on npm within ten minutes"
+          exit 1
+      - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" release/*.tgz --verify-tag --draft --generate-notes
+        run: gh release create "$RELEASE_TAG" release/*.tgz --verify-tag --generate-notes
