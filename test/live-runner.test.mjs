@@ -157,17 +157,17 @@ test('missing key is NOT_RUN, nonzero, and never invokes network', async t => {
   const output = [];
   const result = await main({ root, env: {}, emit: line => output.push(line), fetchImpl: async () => { calls++; throw new Error('must not call'); } });
   assert.equal(result.exitCode, 2); assert.equal(result.report.status, 'NOT_RUN'); assert.equal(calls, 0);
-  assert.deepEqual(result.report.counts, { total: 20, passed: 0, failed: 0, blocked: 20 });
+  assert.deepEqual(result.report.counts, { total: 21, passed: 0, failed: 0, blocked: 21 });
   assert.deepEqual(output, ['configuration NOT_RUN code=missing_api_key']);
 });
 
-test('all20 live workflow passes against local HTTP; dynamic IDs, photo, token usability, and cleanup', async t => {
+test('all21 live workflow passes against local HTTP; dynamic IDs, photo, token usability, and cleanup', async t => {
   const result = await execute(t, {}, { JANUARY_E2E_USER_ID: 'real-user-must-be-ignored', JANUARY_BASE_URL: 'https://ignored.invalid' });
   assert.equal(result.exitCode, 0, JSON.stringify(result.report)); assert.equal(result.report.status, 'PASS');
-  assert.deepEqual(result.report.counts, { total: 20, passed: 20, failed: 0, blocked: 0 });
+  assert.deepEqual(result.report.counts, { total: 21, passed: 21, failed: 0, blocked: 0 });
   assert.deepEqual(result.report.extraCounts, { total: 1, passed: 1, failed: 0, blocked: 0 });
   assert.deepEqual(result.report.cleanupCounts, { total: 2, passed: 2, failed: 0, blocked: 0 });
-  assert.equal(result.mock.requests.length, 21);
+  assert.equal(result.mock.requests.length, 22);
   assert.equal(result.mock.requests.filter(r => r.operationId === 'revokeClientTokens').length, 1);
   assert.equal(result.mock.requests.filter(r => r.operationId === 'deleteFoodLog').length, 1);
   assert.equal(result.mock.logs.size, 0); assert.equal(result.mock.tokenUsers.size, 0);

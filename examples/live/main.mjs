@@ -10,7 +10,7 @@ export const operationLabels = Object.freeze([
   'getCredits', 'foods.search', 'foods.autocomplete', 'foods.get', 'foods.lookupBarcode',
   'foods.suggestAlternatives', 'restaurants.search', 'restaurants.getMenuItems', 'restaurants.searchMenuItems',
   'foodAnalysis.analyzePhoto', 'foodAnalysis.analyzeDescription', 'foodAnalysis.correct',
-  'foodLogs.create', 'foodLogs.list', 'foodLogs.get', 'foodLogs.update', 'foodLogs.delete',
+  'foodLogs.create', 'foodLogs.list', 'foodLogs.getSummary', 'foodLogs.get', 'foodLogs.update', 'foodLogs.delete',
   'glucose.predict', 'createClientToken', 'revokeClientTokens',
 ]);
 const keys = ['JANUARY_API_KEY', 'JANUARY_E2E_TIMEOUT_SECONDS', 'JANUARY_E2E_UPC', 'JANUARY_E2E_QUERY', 'JANUARY_E2E_RESTAURANT_QUERY', 'JANUARY_E2E_LATITUDE', 'JANUARY_E2E_LONGITUDE', 'JANUARY_E2E_IMAGE_PATH'];
@@ -216,6 +216,11 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       if (ownLogs.size) logDiscoveryNeeded = false;
       return result;
     });
+    await step('foodLogs.getSummary', async options => {
+      const result = await user.foodLogs.getSummary({ startDate: day, endDate: day, timezone: 'UTC' }, options);
+      requireCheck(Array.isArray(result.buckets) && result.buckets.length > 0 && typeof result.totals?.logsCount === 'number');
+      return result;
+    });
     await step('foodLogs.get', async options => {
       const result = await user.foodLogs.get({ logId: createdLogId }, options);
       requireCheck(result.id === createdLogId); return result;
@@ -293,7 +298,7 @@ export async function main({ root = sdkRoot, env = process.env, emit = line => c
   catch (error) {
     const code = error instanceof CheckError ? error.code : 'configuration_error';
     emit(`configuration NOT_RUN code=${code}`);
-    const report = { language: 'node', status: 'NOT_RUN', code, counts: { total: 20, passed: 0, failed: 0, blocked: 20 }, results: operationLabels.map(operation => ({ operation, status: 'BLOCKED', code, durationMs: 0 })), cleanup: [], extra: [] };
+    const report = { language: 'node', status: 'NOT_RUN', code, counts: { total: operationLabels.length, passed: 0, failed: 0, blocked: operationLabels.length }, results: operationLabels.map(operation => ({ operation, status: 'BLOCKED', code, durationMs: 0 })), cleanup: [], extra: [] };
     await saveReport(root, report);
     return { exitCode: 2, report };
   }
