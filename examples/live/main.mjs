@@ -11,6 +11,7 @@ export const operationLabels = Object.freeze([
   'foods.suggestAlternatives', 'restaurants.search', 'restaurants.getMenuItems', 'restaurants.searchMenuItems',
   'foodAnalysis.analyzePhoto', 'foodAnalysis.analyzeDescription', 'foodAnalysis.correct',
   'foodLogs.create', 'foodLogs.list', 'foodLogs.getSummary', 'foodLogs.get', 'foodLogs.update', 'foodLogs.delete',
+  'waterLogs.create', 'waterLogs.list', 'waterLogs.delete', 'weightLogs.create', 'weightLogs.list',
   'glucose.predict', 'createClientToken', 'revokeClientTokens',
 ]);
 const keys = ['JANUARY_API_KEY', 'JANUARY_E2E_TIMEOUT_SECONDS', 'JANUARY_E2E_UPC', 'JANUARY_E2E_QUERY', 'JANUARY_E2E_RESTAURANT_QUERY', 'JANUARY_E2E_LATITUDE', 'JANUARY_E2E_LONGITUDE', 'JANUARY_E2E_IMAGE_PATH'];
@@ -114,6 +115,7 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
   let mintAttempted = false;
   let createAttempted = false;
   let createdLogId;
+  let createdWaterLogId;
   let logDiscoveryNeeded = false;
   let selected;
   let foodId;
@@ -229,6 +231,31 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       const result = await user.foodLogs.update({ logId: createdLogId, name: 'SDK E2E meal updated' }, options);
       requireCheck(result.id === createdLogId && result.name === 'SDK E2E meal updated'); return result;
     }, { dependencies: ['foodLogs.create'] });
+    await step('waterLogs.create', async options => {
+      const result = await user.waterLogs.create({ amount: { value: 8, unit: 'fl_oz' }, consumedAt: timestamp }, options);
+      if (typeof result.id === 'string' && result.id) createdWaterLogId = result.id;
+      requireCheck(createdWaterLogId && result.amount?.value === 8 && result.amount.unit === 'fl_oz' && Number.isFinite(Date.parse(result.consumedAt)), 'created_water_log_invalid'); return result;
+    });
+    await step('waterLogs.list', async options => {
+      const result = await user.waterLogs.list({ startDate: day, endDate: day, timezone: 'UTC', unit: 'fl_oz' }, options);
+      requireCheck(Array.isArray(result.items));
+      if (createdWaterLogId) requireCheck(result.items.some(item => item.date === day && item.total?.unit === 'fl_oz' && item.total.value >= 8), 'created_water_log_not_listed');
+      return result;
+    });
+    await step('waterLogs.delete', async options => {
+      const result = await user.waterLogs.delete({ logId: createdWaterLogId }, options);
+      requireCheck(result.$metadata.status === 204, 'delete_not_confirmed'); createdWaterLogId = undefined; return result;
+    }, { dependencies: ['waterLogs.create'] });
+    await step('weightLogs.create', async options => {
+      const result = await user.weightLogs.create({ weight: { value: 75, unit: 'kg' }, measuredAt: timestamp }, options);
+      requireCheck(result.weight?.value === 75 && result.weight.unit === 'kg' && Number.isFinite(Date.parse(result.measuredAt)), 'created_weight_log_invalid'); return result;
+    });
+    await step('weightLogs.list', async options => {
+      const result = await user.weightLogs.list({ startDate: day, endDate: day, timezone: 'UTC' }, options);
+      requireCheck(Array.isArray(result.items));
+      if (rows.get('weightLogs.create')?.status === 'PASS') requireCheck(result.items.some(item => item.date === day && item.weight?.unit === 'kg' && item.weight.value === 75), 'created_weight_log_not_listed');
+      return result;
+    });
     await step('glucose.predict', async options => {
       const result = await user.glucose.predict({
         userProfile: { age: 30, sex: 'male', height: { value: 175, unit: 'cm' }, weight: { value: 75, unit: 'kg' } },
@@ -276,6 +303,13 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       }, index === 0 ? {} : { target: cleanup });
     }
     if (logIds.length) cleanup.push({ operation: 'cleanup.logs', status: ownLogs.size ? 'FAIL' : 'PASS', ...(ownLogs.size ? { code: 'log_cleanup_failed' } : {}), durationMs: 0 });
+    if (createdWaterLogId) {
+      // The in-flow delete did not run or failed; deleting is idempotent, so one more attempt is safe.
+      await step('cleanup.deleteWaterLog', async options => {
+        const result = await user.waterLogs.delete({ logId: createdWaterLogId }, options);
+        requireCheck(result.$metadata.status === 204, 'delete_not_confirmed'); createdWaterLogId = undefined; return result;
+      }, { target: cleanup });
+    }
     if (mintAttempted) {
       await step('revokeClientTokens', async options => {
         const result = await client.revokeClientTokens({ endUserId }, options);

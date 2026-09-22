@@ -53,6 +53,9 @@ function resolveSchema(schema: Schema): Schema {
   return { ...resolveSchema(resolved), ...(schema.nullable ? { nullable: true } : {}) };
 }
 function invalid(field: string): never { throw new JanuaryValidationError(`Invalid or missing ${field}`); }
+// Patch bodies the API rejects when empty (contract minProperties). Only the
+// fields the caller set are serialized, so an empty object means nothing to change.
+const MINIMUM_BODY_PROPERTIES: Readonly<Record<string, number>> = Object.freeze({ updateFoodLog: 1 });
 
 /** Schema-driven serialization; never guesses wire names from caller objects. */
 export function encode(value: unknown, raw: Schema, field = 'request'): unknown {
@@ -219,7 +222,12 @@ export class HttpRuntime {
       } else throw new JanuaryConfigurationError('Unsupported generated parameter location');
     }
     let body: string | undefined;
-    if (operation.body) { body = JSON.stringify(encode(request, operation.body)); headers['content-type'] = 'application/json'; }
+    if (operation.body) {
+      const encoded = encode(request, operation.body) as Record<string, unknown>;
+      const minimum = MINIMUM_BODY_PROPERTIES[operation.operationId];
+      if (minimum !== undefined && Object.keys(encoded).length < minimum) throw new JanuaryValidationError(`${operation.publicMethod} requires at least one field to change`);
+      body = JSON.stringify(encoded); headers['content-type'] = 'application/json';
+    }
     const url = this.#base + path + (query.size ? `?${query}` : '');
     const controller = new AbortController();
     const supplied = [options.signal, request.signal as AbortSignal | undefined].filter((s): s is AbortSignal => !!s);

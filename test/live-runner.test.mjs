@@ -13,6 +13,7 @@ const syntheticToken = 'ct-offline-runner-test-only';
 const newFoodId = '81234567';
 const newServingId = '71234567';
 const logId = '9c56112d-038a-426e-9080-6aeaf1c3a433';
+const waterLogId = '2f1d6a7e-5b3c-4d8e-9f01-23456789abcd';
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
 
 async function temporaryRoot(t) {
@@ -27,6 +28,8 @@ async function temporaryRoot(t) {
 async function service(t, { fail = {}, timeoutMint = false, hostile = false } = {}) {
   const requests = [];
   const logs = new Map();
+  const waterLogs = new Map();
+  const weightLogs = new Map();
   const tokenUsers = new Set();
   const server = createServer(async (req, res) => {
     try {
@@ -90,6 +93,25 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
         result = logs.get(userId); result.name = body.name;
       }
       if (operationId === 'deleteFoodLog') { assert.ok(logs.has(userId)); assert.ok(url.pathname.endsWith('/' + logId)); logs.delete(userId); }
+      if (operationId === 'createWaterLog') {
+        assert.deepEqual(body.amount, { value: 8, unit: 'fl_oz' }); assert.ok(Number.isFinite(Date.parse(body.consumed_at)));
+        result = { id: waterLogId, amount: body.amount, consumed_at: body.consumed_at };
+        waterLogs.set(userId, result);
+      }
+      if (operationId === 'listWaterLogs') {
+        assert.equal(url.searchParams.get('unit'), 'fl_oz'); assert.equal(url.searchParams.get('timezone'), 'UTC');
+        result = { items: waterLogs.has(userId) ? [{ date: url.searchParams.get('start_date'), total: { value: 8, unit: 'fl_oz' } }] : [] };
+      }
+      if (operationId === 'deleteWaterLog') { assert.ok(waterLogs.has(userId)); assert.ok(url.pathname.endsWith('/' + waterLogId)); waterLogs.delete(userId); }
+      if (operationId === 'createWeightLog') {
+        assert.deepEqual(body.weight, { value: 75, unit: 'kg' }); assert.ok(Number.isFinite(Date.parse(body.measured_at)));
+        result = { weight: body.weight, measured_at: body.measured_at };
+        weightLogs.set(userId, result);
+      }
+      if (operationId === 'listWeightLogs') {
+        assert.equal(url.searchParams.get('timezone'), 'UTC');
+        result = { items: weightLogs.has(userId) ? [{ date: url.searchParams.get('start_date'), weight: { value: 75, unit: 'kg' } }] : [] };
+      }
       if (operationId === 'predictGlucose') {
         assert.deepEqual(body.foods, [{ food_id: newFoodId, serving_id: newServingId, quantity: 1 }]);
         assert.equal(body.user_profile.age, 30); assert.equal(body.user_profile.height.unit, 'cm');
@@ -111,7 +133,7 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  return { server, requests, logs, tokenUsers, baseUrl: `http://127.0.0.1:${server.address().port}` };
+  return { server, requests, logs, waterLogs, weightLogs, tokenUsers, baseUrl: `http://127.0.0.1:${server.address().port}` };
 }
 async function execute(t, scenario = {}, overrides = {}) {
   const root = await temporaryRoot(t);
@@ -157,20 +179,22 @@ test('missing key is NOT_RUN, nonzero, and never invokes network', async t => {
   const output = [];
   const result = await main({ root, env: {}, emit: line => output.push(line), fetchImpl: async () => { calls++; throw new Error('must not call'); } });
   assert.equal(result.exitCode, 2); assert.equal(result.report.status, 'NOT_RUN'); assert.equal(calls, 0);
-  assert.deepEqual(result.report.counts, { total: 21, passed: 0, failed: 0, blocked: 21 });
+  assert.deepEqual(result.report.counts, { total: 26, passed: 0, failed: 0, blocked: 26 });
   assert.deepEqual(output, ['configuration NOT_RUN code=missing_api_key']);
 });
 
-test('all21 live workflow passes against local HTTP; dynamic IDs, photo, token usability, and cleanup', async t => {
+test('all26 live workflow passes against local HTTP; dynamic IDs, photo, token usability, and cleanup', async t => {
   const result = await execute(t, {}, { JANUARY_E2E_USER_ID: 'real-user-must-be-ignored', JANUARY_BASE_URL: 'https://ignored.invalid' });
   assert.equal(result.exitCode, 0, JSON.stringify(result.report)); assert.equal(result.report.status, 'PASS');
-  assert.deepEqual(result.report.counts, { total: 21, passed: 21, failed: 0, blocked: 0 });
+  assert.deepEqual(result.report.counts, { total: 26, passed: 26, failed: 0, blocked: 0 });
   assert.deepEqual(result.report.extraCounts, { total: 1, passed: 1, failed: 0, blocked: 0 });
   assert.deepEqual(result.report.cleanupCounts, { total: 2, passed: 2, failed: 0, blocked: 0 });
-  assert.equal(result.mock.requests.length, 22);
+  assert.equal(result.mock.requests.length, 27);
   assert.equal(result.mock.requests.filter(r => r.operationId === 'revokeClientTokens').length, 1);
   assert.equal(result.mock.requests.filter(r => r.operationId === 'deleteFoodLog').length, 1);
-  assert.equal(result.mock.logs.size, 0); assert.equal(result.mock.tokenUsers.size, 0);
+  assert.equal(result.mock.requests.filter(r => r.operationId === 'deleteWaterLog').length, 1);
+  assert.equal(result.mock.logs.size, 0); assert.equal(result.mock.waterLogs.size, 0); assert.equal(result.mock.tokenUsers.size, 0);
+  assert.equal(result.mock.weightLogs.size, 1, 'weight logs cannot be deleted through the API');
 });
 
 test('independent operations continue and dependent operations are BLOCKED, never counted passed', async t => {
@@ -197,6 +221,14 @@ test('ambiguous mint timeout still gets one revoke; native-token probe is BLOCKE
   assert.equal(mock.requests.filter(r => r.operationId === 'createClientToken').length, 1);
   assert.equal(mock.requests.filter(r => r.operationId === 'revokeClientTokens').length, 1);
   assert.equal(mock.tokenUsers.size, 0); assert.equal(mock.logs.size, 0);
+});
+
+test('a failed in-flow water delete gets exactly one idempotent cleanup attempt', async t => {
+  const { report, exitCode, mock } = await execute(t, { fail: { deleteWaterLog: 503 } });
+  assert.equal(exitCode, 1); assert.equal(report.results.find(r => r.operation === 'waterLogs.delete').status, 'FAIL');
+  assert.equal(mock.requests.filter(r => r.operationId === 'deleteWaterLog').length, 2);
+  assert.equal(report.cleanup.find(r => r.operation === 'cleanup.deleteWaterLog').status, 'FAIL');
+  assert.equal(report.cleanupCounts.failed, 1);
 });
 
 test('cleanup failures fail the command and are not retried', async t => {

@@ -58,7 +58,8 @@ test('redirects are rejected without forwarding credentials or following Locatio
   assert.equal(calls, 1);
 });
 
-test('all 20 official fixtures serialize through a real local HTTP service', async t => {
+test('all 26 official fixtures serialize through a real local HTTP service', async t => {
+  assert.equal(fixtures.operations.length, 26);
   for (const f of fixtures.operations) await t.test(f.operationId, async t => {
     let seen;
     let calls = 0;
@@ -89,7 +90,7 @@ test('all 20 official fixtures serialize through a real local HTTP service', asy
     if (f.operationId === 'revokeClientTokens') {
       assert.equal(result.revokedCount, f.response.body.revoked_count);
     } else if (f.operationId === 'predictGlucose') assert.equal(result.impact, f.response.body.impact_score);
-    else if (f.operationId === 'deleteFoodLog') assert.deepEqual(result, {});
+    else if (['deleteFoodLog', 'deleteWaterLog'].includes(f.operationId)) assert.deepEqual(result, {});
     else if (['searchFoods', 'autocompleteFoods'].includes(f.operationId)) {
       assert.equal(result.items[0].id, f.response.body.items[0].id);
       assert.deepEqual(result.items[0].nutrients, toPublic(f.response.body.items[0].nutrients));
