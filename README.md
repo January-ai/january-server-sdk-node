@@ -287,7 +287,7 @@ Send a scan result back to `foodAnalysis.correct` as its `analysis` unchanged; t
 
 ### Water and weight logs
 
-Water is logged as an amount in `fl_oz` or `ml`; the daily list returns one total per local day in the unit you ask for. Weight is logged in `lb` or `kg`; the daily list returns the latest measurement per local day. Dates are local calendar days in the `timezone` you pass.
+Water is logged as an amount in `fl_oz` (1–811.5), `cup` (0.125–101.4), or `ml` (30–24000); the daily list returns one total per local day in the unit you ask for. Weight is logged in `lb` or `kg`; the daily list returns the latest measurement per local day. Dates are local calendar days in the `timezone` you pass.
 
 ```ts
 const water = await user.waterLogs.create({ amount: { value: 8, unit: 'fl_oz' } });

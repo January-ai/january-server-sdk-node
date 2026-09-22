@@ -41,6 +41,15 @@ test('list water logs requires the unit and rejects unknown units before sending
   assert.equal(requests[0].url.searchParams.get('unit'), 'ml');
 });
 
+test('water logs accept cups for logging and daily totals', async () => {
+  const { client, requests } = capture(byId.createWaterLog);
+  await client.forUser('user-cup').waterLogs.create({ amount: { value: 0.125, unit: 'cup' } });
+  assert.deepEqual(requests[0].body.amount, { value: 0.125, unit: 'cup' });
+  const totals = capture(byId.listWaterLogs);
+  await totals.client.forUser('user-cup').waterLogs.list({ startDate: '2026-09-01', endDate: '2026-09-10', timezone: 'UTC', unit: 'cup' });
+  assert.equal(totals.requests[0].url.searchParams.get('unit'), 'cup');
+});
+
 test('food-log updates send only the supplied fields and refuse an empty patch', async () => {
   const { client, requests } = capture(byId.updateFoodLog);
   await assert.rejects(client.foodLogs.update({ endUserId: 'user', logId: byId.updateFoodLog.request.parameters.path.log_id }), JanuaryValidationError);
