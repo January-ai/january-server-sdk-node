@@ -79,7 +79,7 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false, dro
       if (operationId === 'searchFoodsByNaturalLanguage') assert.equal(body.text, 'one banana');
       if (operationId === 'createFoodLog') {
         assert.deepEqual(body.foods, [{ food_id: newFoodId, serving_id: newServingId, quantity: 1 }]);
-        result.id = logId; result.eaten_at = body.eaten_at; result.name = body.name;
+        result.id = logId; result.created_at = body.created_at; result.name = body.name;
         result.foods[0].food_id = newFoodId; result.foods[0].serving.id = newServingId;
         logs.set(userId, result);
       }
@@ -94,8 +94,8 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false, dro
       }
       if (operationId === 'deleteFoodLog') { assert.ok(logs.has(userId)); assert.ok(url.pathname.endsWith('/' + logId)); logs.delete(userId); }
       if (operationId === 'createWaterLog') {
-        assert.deepEqual(body.amount, { value: 8, unit: 'fl_oz' }); assert.ok(Number.isFinite(Date.parse(body.consumed_at)));
-        result = { id: waterLogId, amount: body.amount, consumed_at: body.consumed_at };
+        assert.deepEqual(body.amount, { value: 8, unit: 'fl_oz' }); assert.ok(Number.isFinite(Date.parse(body.created_at)));
+        result = { id: waterLogId, amount: body.amount, created_at: body.created_at };
         waterLogs.set(userId, result);
       }
       if (operationId === 'listWaterLogs') {
@@ -104,8 +104,8 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false, dro
       }
       if (operationId === 'deleteWaterLog') { assert.ok(waterLogs.has(userId)); assert.ok(url.pathname.endsWith('/' + waterLogId)); waterLogs.delete(userId); }
       if (operationId === 'createWeightLog') {
-        assert.deepEqual(body.weight, { value: 75, unit: 'kg' }); assert.ok(Number.isFinite(Date.parse(body.measured_at)));
-        result = { weight: body.weight, measured_at: body.measured_at };
+        assert.deepEqual(body.weight, { value: 75, unit: 'kg' }); assert.ok(Number.isFinite(Date.parse(body.created_at)));
+        result = { weight: body.weight, created_at: body.created_at };
         weightLogs.set(userId, result);
       }
       // The write is recorded, then the connection drops before any reply.
@@ -114,8 +114,8 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false, dro
       if (malformed[operationId] && operationId === 'createWeightLog') result = { ...result, weight: { value: 76, unit: 'kg' } };
       if (malformed[operationId] && operationId === 'createWaterLog') result = { ...result, amount: { value: 9, unit: 'fl_oz' } };
       // The write is recorded, but the reply names a different measurement time.
-      if (shifted[operationId] && operationId === 'createWeightLog') result = { ...result, measured_at: new Date(Date.parse(result.measured_at) + 60_000).toISOString() };
-      if (shifted[operationId] && operationId === 'createWaterLog') result = { ...result, consumed_at: new Date(Date.parse(result.consumed_at) + 60_000).toISOString() };
+      if (shifted[operationId] && operationId === 'createWeightLog') result = { ...result, created_at: new Date(Date.parse(result.created_at) + 60_000).toISOString() };
+      if (shifted[operationId] && operationId === 'createWaterLog') result = { ...result, created_at: new Date(Date.parse(result.created_at) + 60_000).toISOString() };
       if (operationId === 'listWeightLogs') {
         assert.equal(url.searchParams.get('timezone'), 'UTC');
         result = { items: weightLogs.has(userId) ? [{ date: url.searchParams.get('start_date'), weight: { value: 75, unit: 'kg' } }] : [] };

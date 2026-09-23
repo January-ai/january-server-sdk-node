@@ -19,7 +19,7 @@ test('water and weight logs are scoped by forUser like food logs', async () => {
   const user = client.forUser('user-water');
   const log = await user.waterLogs.create({ amount: { value: 8, unit: 'fl_oz' }, consumedAt: new Date('2026-09-10T14:30:15Z') });
   assert.equal(requests[0].init.headers['january-end-user-id'] ?? requests[0].init.headers['January-End-User-ID'], 'user-water');
-  assert.deepEqual(requests[0].body, { amount: { value: 8, unit: 'fl_oz' }, consumed_at: '2026-09-10T14:30:15.000Z' });
+  assert.deepEqual(requests[0].body, { amount: { value: 8, unit: 'fl_oz' }, created_at: '2026-09-10T14:30:15.000Z' });
   assert.equal(log.id, byId.createWaterLog.response.body.id);
   assert.equal(log.amount.unit, 'fl_oz');
   const weights = capture(byId.listWeightLogs);
@@ -27,6 +27,37 @@ test('water and weight logs are scoped by forUser like food logs', async () => {
   assert.equal(weights.requests[0].url.pathname, '/v1.2/weight-logs');
   assert.equal(weights.requests[0].url.searchParams.get('timezone'), 'America/Los_Angeles');
   assert.equal(result.items[0].weight.unit, 'lb');
+});
+
+test('food, water and weight log times travel as created_at and keep their public names', async () => {
+  // The API names the time of each log created_at in requests and replies; the
+  // SDK keeps eatenAt, consumedAt and measuredAt and maps them both ways.
+  const stored = '2026-09-10T14:30:15.123Z';
+  const logId = '78129823-8ba2-4183-b13b-71f0e963c606';
+  const replies = {
+    '/v1.2/food-logs': { id: logId, foods: [], created_at: stored, name: null },
+    [`/v1.2/food-logs/${logId}`]: { id: logId, foods: [], created_at: stored, name: null },
+    '/v1.2/water-logs': { id: logId, amount: { value: 8, unit: 'fl_oz' }, created_at: stored },
+    '/v1.2/weight-logs': { weight: { value: 70, unit: 'kg' }, created_at: stored },
+  };
+  const bodies = {};
+  const client = new January({ secretKey: 'sk-local-only', maxRetries: 0, fetch: async (url, init) => {
+    const { pathname } = new URL(url);
+    bodies[`${init.method} ${pathname}`] = JSON.parse(init.body);
+    return new Response(JSON.stringify(replies[pathname]), { status: init.method === 'PATCH' ? 200 : 201, headers: { 'content-type': 'application/json' } });
+  } });
+  const user = client.forUser('user');
+  const at = new Date('2026-09-10T14:30:15Z');
+  const food = await user.foodLogs.create({ foods: [{ foodId: '84222716', servingId: '67943292', quantity: 1 }], eatenAt: at });
+  const updated = await user.foodLogs.update({ logId, eatenAt: at });
+  const water = await user.waterLogs.create({ amount: { value: 8, unit: 'fl_oz' }, consumedAt: at });
+  const weight = await user.weightLogs.create({ weight: { value: 70, unit: 'kg' }, measuredAt: at });
+  assert.deepEqual([food.eatenAt, updated.eatenAt, water.consumedAt, weight.measuredAt], [stored, stored, stored, stored]);
+  for (const log of [food, updated, water, weight]) assert.ok(!('createdAt' in log) && !('created_at' in log));
+  for (const request of ['POST /v1.2/food-logs', `PATCH /v1.2/food-logs/${logId}`, 'POST /v1.2/water-logs', 'POST /v1.2/weight-logs']) {
+    assert.equal(bodies[request]?.created_at, '2026-09-10T14:30:15.000Z', request);
+    for (const previous of ['eaten_at', 'consumed_at', 'measured_at']) assert.ok(!(previous in bodies[request]), `${request} sent ${previous}`);
+  }
 });
 
 test('list water logs requires the unit and rejects unknown units before sending', async () => {
@@ -43,8 +74,8 @@ test('list water logs requires the unit and rejects unknown units before sending
 
 test('water logs accept cups for logging and daily totals', async () => {
   const { client, requests } = capture(byId.createWaterLog);
-  await client.forUser('user-cup').waterLogs.create({ amount: { value: 0.125, unit: 'cup' } });
-  assert.deepEqual(requests[0].body.amount, { value: 0.125, unit: 'cup' });
+  await client.forUser('user-cup').waterLogs.create({ amount: { value: 0.1, unit: 'cup' } });
+  assert.deepEqual(requests[0].body.amount, { value: 0.1, unit: 'cup' });
   const totals = capture(byId.listWaterLogs);
   await totals.client.forUser('user-cup').waterLogs.list({ startDate: '2026-09-01', endDate: '2026-09-10', timezone: 'UTC', unit: 'cup' });
   assert.equal(totals.requests[0].url.searchParams.get('unit'), 'cup');
@@ -130,7 +161,7 @@ test('a water amount must be within the range of its unit', async () => {
   for (const [unit, accepted, refused] of [
     ['fl_oz', [1, 8, 811.5], [0.5, 0.999, 811.51, 1000]],
     ['ml', [30, 250, 24000], [1, 29.9, 24000.01]],
-    ['cup', [0.125, 1, 101.4], [0.124, 101.41, 811.5]],
+    ['cup', [0.1, 0.124, 1, 101.4], [0.099, 101.41, 811.5]],
   ]) {
     for (const value of accepted) {
       const before = requests.length;
