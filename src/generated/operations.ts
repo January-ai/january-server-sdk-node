@@ -30,8 +30,10 @@ export const operations: Record<string, Operation> = {
           "publicName": "endUserId"
         },
         "scopes": {
-          "description": "What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `[\"foods:read\"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read.",
+          "description": "What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `[\"foods:read\"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read, water_logs:read, water_logs:write, weight_logs:read, weight_logs:write.",
           "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
           "items": {
             "type": "string",
             "enum": [
@@ -40,7 +42,11 @@ export const operations: Record<string, Operation> = {
               "food_logs:read",
               "food_logs:write",
               "glucose:read",
-              "restaurants:read"
+              "restaurants:read",
+              "water_logs:read",
+              "water_logs:write",
+              "weight_logs:read",
+              "weight_logs:write"
             ]
           },
           "publicName": "scopes"
@@ -292,6 +298,7 @@ export const operations: Record<string, Operation> = {
         "diet_restrictions": {
           "description": "Allergens/ingredients to avoid. Omit it (or send []) if none apply.",
           "type": "array",
+          "maxItems": 17,
           "items": {
             "ref": "DietRestriction"
           },
@@ -300,6 +307,7 @@ export const operations: Record<string, Operation> = {
         "diet_preferences": {
           "description": "Dietary patterns to match. Omit it (or send []) if none apply.",
           "type": "array",
+          "maxItems": 9,
           "items": {
             "ref": "DietPreference"
           },
@@ -655,7 +663,7 @@ export const operations: Record<string, Operation> = {
           "publicName": "image"
         },
         "reasoning": {
-          "description": "Controls analysis effort. Omit it or set `effort` to `none` to use the standard analyzer; `xhigh` uses the reasoning-based analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost.",
+          "description": "Controls analysis effort. Omit it or set `effort` to `xhigh` to use the reasoning-based analyzer; `none` uses the standard analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost.",
           "allOf": [
             {
               "ref": "AnalysisReasoning"
@@ -738,10 +746,10 @@ export const operations: Record<string, Operation> = {
       ],
       "properties": {
         "analysis": {
-          "description": "The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically, and `total_nutrients` is recalculated rather than trusted — send it or leave it out, it makes no difference.",
+          "description": "The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically. `meal_name` may be omitted (treated as null); `total_nutrients` may be omitted because it is recalculated rather than trusted. Older results may omit serving `weight_grams`; it is treated as unknown. The forwarded nutrients (calories, protein, carbohydrates, net_carbohydrates, total_fat, saturated_fat, fiber, total_sugars, added_sugars, sodium) must each have a `value` from 0 to 1000000 and a `unit` of at most 16 characters; every analysis result already satisfies this. A detection the analysis returned incomplete — with a null `name` or serving `unit` — is left out of the corrected result, because the correction model needs what it lacks; describe that food in `instruction` if it belongs in the meal.",
           "allOf": [
             {
-              "ref": "FoodScan"
+              "ref": "CorrectionAnalysis"
             }
           ],
           "publicName": "analysis"
@@ -798,6 +806,7 @@ export const operations: Record<string, Operation> = {
       "properties": {
         "foods": {
           "type": "array",
+          "minItems": 1,
           "maxItems": 100,
           "items": {
             "ref": "FoodLogInputFood"
@@ -1096,6 +1105,7 @@ export const operations: Record<string, Operation> = {
       "properties": {
         "foods": {
           "type": "array",
+          "minItems": 1,
           "maxItems": 100,
           "items": {
             "ref": "FoodLogInputFood"
@@ -1113,7 +1123,8 @@ export const operations: Record<string, Operation> = {
           "maxLength": 256,
           "publicName": "name"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "responses": {
       "200": {
@@ -1169,6 +1180,336 @@ export const operations: Record<string, Operation> = {
       }
     }
   },
+  "createWaterLog": {
+    "operationId": "createWaterLog",
+    "method": "POST",
+    "path": "/v1.2/water-logs",
+    "resource": "waterLogs",
+    "publicMethod": "create",
+    "audience": "shared",
+    "parameterNames": {
+      "January-End-User-ID": "endUserId",
+      "x-end-user-id": "endUserId",
+      "x-end-user-timezone": "endUserTimezone"
+    },
+    "retryNever": false,
+    "retryAmbiguous": false,
+    "parameters": [
+      {
+        "name": "January-End-User-ID",
+        "publicName": "endUserId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "ref": "PartnerUserId"
+        },
+        "style": "simple",
+        "explode": false
+      }
+    ],
+    "body": {
+      "type": "object",
+      "required": [
+        "amount"
+      ],
+      "properties": {
+        "amount": {
+          "description": "How much water. An end user's total is capped at 24 L (about 811 fl oz) per day.",
+          "allOf": [
+            {
+              "ref": "WaterAmount"
+            }
+          ],
+          "publicName": "amount"
+        },
+        "consumed_at": {
+          "description": "When the water was consumed — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. Its day is the one the daily cap counts it against.",
+          "type": "string",
+          "format": "date-time",
+          "publicName": "consumedAt"
+        }
+      }
+    },
+    "responses": {
+      "201": {
+        "schema": {
+          "ref": "WaterLog"
+        },
+        "headers": []
+      }
+    }
+  },
+  "listWaterLogs": {
+    "operationId": "listWaterLogs",
+    "method": "GET",
+    "path": "/v1.2/water-logs",
+    "resource": "waterLogs",
+    "publicMethod": "list",
+    "audience": "shared",
+    "parameterNames": {
+      "January-End-User-ID": "endUserId",
+      "x-end-user-id": "endUserId",
+      "x-end-user-timezone": "endUserTimezone"
+    },
+    "retryNever": false,
+    "retryAmbiguous": true,
+    "parameters": [
+      {
+        "name": "January-End-User-ID",
+        "publicName": "endUserId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "ref": "PartnerUserId"
+        },
+        "style": "simple",
+        "explode": false
+      },
+      {
+        "name": "start_date",
+        "publicName": "startDate",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "end_date",
+        "publicName": "endDate",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "timezone",
+        "publicName": "timezone",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "unit",
+        "publicName": "unit",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "ref": "VolumeUnit"
+        },
+        "style": "form",
+        "explode": true
+      }
+    ],
+    "responses": {
+      "200": {
+        "schema": {
+          "ref": "ListWaterLogsResponse"
+        },
+        "headers": []
+      }
+    }
+  },
+  "deleteWaterLog": {
+    "operationId": "deleteWaterLog",
+    "method": "DELETE",
+    "path": "/v1.2/water-logs/{log_id}",
+    "resource": "waterLogs",
+    "publicMethod": "delete",
+    "audience": "shared",
+    "parameterNames": {
+      "January-End-User-ID": "endUserId",
+      "x-end-user-id": "endUserId",
+      "x-end-user-timezone": "endUserTimezone"
+    },
+    "retryNever": false,
+    "retryAmbiguous": true,
+    "parameters": [
+      {
+        "name": "January-End-User-ID",
+        "publicName": "endUserId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "ref": "PartnerUserId"
+        },
+        "style": "simple",
+        "explode": false
+      },
+      {
+        "name": "log_id",
+        "publicName": "logId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "ref": "WaterLogId"
+        },
+        "style": "simple",
+        "explode": false
+      }
+    ],
+    "responses": {
+      "204": {
+        "schema": null,
+        "headers": []
+      }
+    }
+  },
+  "createWeightLog": {
+    "operationId": "createWeightLog",
+    "method": "POST",
+    "path": "/v1.2/weight-logs",
+    "resource": "weightLogs",
+    "publicMethod": "create",
+    "audience": "shared",
+    "parameterNames": {
+      "January-End-User-ID": "endUserId",
+      "x-end-user-id": "endUserId",
+      "x-end-user-timezone": "endUserTimezone"
+    },
+    "retryNever": false,
+    "retryAmbiguous": false,
+    "parameters": [
+      {
+        "name": "January-End-User-ID",
+        "publicName": "endUserId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "ref": "PartnerUserId"
+        },
+        "style": "simple",
+        "explode": false
+      }
+    ],
+    "body": {
+      "type": "object",
+      "required": [
+        "weight"
+      ],
+      "properties": {
+        "weight": {
+          "description": "The measured weight. `value` must be 10–1000 for `lb`, or 4.5–453.6 for `kg`; it is stored and returned in the unit sent.",
+          "rangeByUnit": {
+            "valueProperty": "value",
+            "unitProperty": "unit",
+            "ranges": {
+              "lb": {
+                "minimum": 10,
+                "maximum": 1000
+              },
+              "kg": {
+                "minimum": 4.5,
+                "maximum": 453.6
+              }
+            }
+          },
+          "allOf": [
+            {
+              "ref": "Weight"
+            }
+          ],
+          "publicName": "weight"
+        },
+        "measured_at": {
+          "description": "When the weight was measured — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now.",
+          "type": "string",
+          "format": "date-time",
+          "publicName": "measuredAt"
+        }
+      }
+    },
+    "responses": {
+      "201": {
+        "schema": {
+          "ref": "WeightLog"
+        },
+        "headers": []
+      }
+    }
+  },
+  "listWeightLogs": {
+    "operationId": "listWeightLogs",
+    "method": "GET",
+    "path": "/v1.2/weight-logs",
+    "resource": "weightLogs",
+    "publicMethod": "list",
+    "audience": "shared",
+    "parameterNames": {
+      "January-End-User-ID": "endUserId",
+      "x-end-user-id": "endUserId",
+      "x-end-user-timezone": "endUserTimezone"
+    },
+    "retryNever": false,
+    "retryAmbiguous": true,
+    "parameters": [
+      {
+        "name": "January-End-User-ID",
+        "publicName": "endUserId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "ref": "PartnerUserId"
+        },
+        "style": "simple",
+        "explode": false
+      },
+      {
+        "name": "start_date",
+        "publicName": "startDate",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "end_date",
+        "publicName": "endDate",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
+        "name": "timezone",
+        "publicName": "timezone",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form",
+        "explode": true
+      }
+    ],
+    "responses": {
+      "200": {
+        "schema": {
+          "ref": "ListWeightLogsResponse"
+        },
+        "headers": []
+      }
+    }
+  },
   "predictGlucose": {
     "operationId": "predictGlucose",
     "method": "POST",
@@ -1205,6 +1546,7 @@ export const operations: Record<string, Operation> = {
         "foods": {
           "description": "The meal to predict the glucose response for.",
           "type": "array",
+          "minItems": 1,
           "maxItems": 100,
           "items": {
             "ref": "FoodLogInputFood"
@@ -1220,6 +1562,8 @@ export const operations: Record<string, Operation> = {
         "cgm_data": {
           "description": "Optional CGM history, to personalize the prediction to this end user. Send it together with `consumed_foods` covering the same period — **at least 5 complete days of paired history**, which is what the model needs to train on them. Fewer is refused with `invalid_request`. Omit both fields for a standard prediction, which needs no sensor and no history.",
           "type": "array",
+          "minItems": 1,
+          "maxItems": 5000,
           "items": {
             "ref": "CgmReading"
           },
@@ -1228,6 +1572,8 @@ export const operations: Record<string, Operation> = {
         "consumed_foods": {
           "description": "The meals eaten during the CGM history; requires cgm_data.",
           "type": "array",
+          "minItems": 1,
+          "maxItems": 5000,
           "items": {
             "ref": "ConsumedHistoricalFood"
           },

@@ -3,8 +3,8 @@ export const ActivityLevel = {"sedentary":"sedentary","lightlyActive":"lightly_a
 export type ActivityLevel = "sedentary" | "lightly_active" | "moderately_active" | "very_active" | (string & {});
 
 export type AlternativeFood = {
-  /** Catalog food id, or null when the producer matched none. */
-  "id": (string) | null;
+  /** Catalog food id. */
+  "id": string;
   /** Null only when the producer sent a food with no name. */
   "name": (string) | null;
   /** Null for generic (non-branded) foods. */
@@ -46,7 +46,7 @@ export type ClientToken = {
   /** The end user this token is bound to, echoed back so a caller can assert it minted what it meant to. */
   "endUserId": string;
   /** What this token may do — the exact scopes it was granted, echoed back so a caller can assert it minted what it meant to. */
-  "scopes": Array<"foods:read" | "food_analysis:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | (string & {})>;
+  "scopes": Array<"foods:read" | "food_analysis:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | "water_logs:read" | "water_logs:write" | "weight_logs:read" | "weight_logs:write" | (string & {})>;
 };
 
 export type ClientTokenRevocationResult = {
@@ -68,9 +68,47 @@ export type ConsumedHistoricalFood = {
   "quantity": number;
 };
 
+export type CorrectionAnalysis = {
+  /** A name for the meal as a whole. Null on text analyses — the caller already has the words. Corrections preserve a null meal name. */
+  "mealName"?: (string) | null;
+  /** Optional original totals. Ignored on input; corrections recalculate totals from the corrected foods. */
+  "totalNutrients"?: (NutritionFacts);
+  "detections": Array<CorrectionDetection>;
+};
+
+export type CorrectionDetection = {
+  "confidence": ConfidenceScore;
+  "food": CorrectionFood;
+};
+
+export type CorrectionFood = {
+  /** Null only when the producer sent a food with no name. */
+  "name": (string) | null;
+  /** Null for generic (non-branded) foods. */
+  "brandName": (string) | null;
+  /** Matched catalog food id. Pass it back as food_id when logging this food. */
+  "id": string;
+  /** Positive number of selected catalog servings consumed. Use it unchanged as food-log quantity. Display the consumed amount as food.quantity × food.serving.quantity, followed by food.serving.unit: 4 × 0.5 cup = 2 cups; 0.4 × 100 g = 40 g. Nutrients already describe this consumed portion; do not multiply them again. */
+  "quantity": number;
+  /** Nutrition for the consumed portion, already scaled by quantity. Send the analysis back unchanged for corrections. */
+  "nutrients": (NutritionFacts);
+  "serving": CorrectionServing;
+};
+
+export type CorrectionServing = {
+  /** Catalog serving id. Pass it back as serving_id when logging this food. */
+  "id": string;
+  /** Positive amount of unit represented by this serving definition. In food analysis and food logs this is one catalog serving: consumed amount = food.quantity × food.serving.quantity (4 × 0.5 cup = 2 cups). Food alternatives instead report their recommended portion amount here. */
+  "quantity": number;
+  /** Null only when the producer sent a serving with no unit. */
+  "unit": (string) | null;
+  /** Weight in grams of this serving definition. For food analysis and food logs this is one catalog serving, not the consumed portion: consumed grams = food.quantity × food.serving.weight_grams. Null when unknown. */
+  "weightGrams"?: (number) | null;
+};
+
 export type CorrectPhotoScanBody = {
-  /** The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically, and `total_nutrients` is recalculated rather than trusted — send it or leave it out, it makes no difference. */
-  "analysis": (FoodScan);
+  /** The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically. `meal_name` may be omitted (treated as null); `total_nutrients` may be omitted because it is recalculated rather than trusted. Older results may omit serving `weight_grams`; it is treated as unknown. The forwarded nutrients (calories, protein, carbohydrates, net_carbohydrates, total_fat, saturated_fat, fiber, total_sugars, added_sugars, sodium) must each have a `value` from 0 to 1000000 and a `unit` of at most 16 characters; every analysis result already satisfies this. A detection the analysis returned incomplete — with a null `name` or serving `unit` — is left out of the corrected result, because the correction model needs what it lacks; describe that food in `instruction` if it belongs in the meal. */
+  "analysis": (CorrectionAnalysis);
   /** Plain-English description of what to correct. */
   "instruction": string;
 };
@@ -78,8 +116,8 @@ export type CorrectPhotoScanBody = {
 export type CreateClientTokenBody = {
   /** Your stable ID for the end user this token acts as. The token is bound to it; requests made with the token act only on this user. */
   "endUserId": string;
-  /** What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `["foods:read"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read. */
-  "scopes": Array<"foods:read" | "food_analysis:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | (string & {})>;
+  /** What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `["foods:read"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read, water_logs:read, water_logs:write, weight_logs:read, weight_logs:write. */
+  "scopes": Array<"foods:read" | "food_analysis:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | "water_logs:read" | "water_logs:write" | "weight_logs:read" | "weight_logs:write" | (string & {})>;
   /** How long the token stays valid, in seconds. Between 300 and 7200; defaults to 1800. */
   "ttlSeconds"?: number;
 };
@@ -91,9 +129,22 @@ export type CreateFoodLogBody = {
   "name"?: string;
 };
 
+export type CreateWaterLogBody = {
+  /** How much water. An end user's total is capped at 24 L (about 811 fl oz) per day. */
+  "amount": (WaterAmount);
+  /** When the water was consumed — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. Its day is the one the daily cap counts it against. */
+  "consumedAt"?: string;
+};
+
+export type CreateWeightLogBody = {
+  /** The measured weight. `value` must be 10–1000 for `lb`, or 4.5–453.6 for `kg`; it is stored and returned in the unit sent. */
+  "weight": (Weight);
+  /** When the weight was measured — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. */
+  "measuredAt"?: string;
+};
+
 export type CreditBalance = {
-  /** The plan this allowance comes from. */
-  "plan": string;
+  "plan": CreditPlan;
   /** First day of the current billing period (UTC), inclusive. */
   "periodStart": string;
   /** Last day of the current billing period (UTC), inclusive. */
@@ -108,18 +159,35 @@ export type CreditBalance = {
   "remainingCredits": (number) | null;
 };
 
+export const CreditPlan = {"free":"free","pro":"pro","startup":"startup","enterprise":"enterprise","unlimited":"unlimited"} as const;
+export type CreditPlan = "free" | "pro" | "startup" | "enterprise" | "unlimited" | (string & {});
+
+export type DailyWaterTotal = {
+  /** Local calendar date in the request’s `timezone`. */
+  "date": string;
+  /** Everything logged on this local day, in the unit the request asked for. */
+  "total": (Volume);
+};
+
+export type DailyWeight = {
+  /** Local calendar date in the request’s `timezone`. */
+  "date": string;
+  /** The weight with the latest `measured_at` on this day — later measurements replace earlier ones — in the unit it was logged in. */
+  "weight": (Weight);
+};
+
 export type DetectedFood = {
-  /** Catalog food id, or null when the producer matched none. */
-  "id": (string) | null;
   /** Null only when the producer sent a food with no name. */
   "name": (string) | null;
   /** Null for generic (non-branded) foods. */
   "brandName": (string) | null;
-  /** Number of catalog servings consumed, ready to use as food-log quantity. For 40 g from a 100 g serving this is 0.4. Null when the producer supplied no usable portion. */
-  "quantity": (number) | null;
+  /** Matched catalog food id. Pass it back as food_id when logging this food. */
+  "id": string;
+  /** Positive number of selected catalog servings consumed. Use it unchanged as food-log quantity. Display the consumed amount as food.quantity × food.serving.quantity, followed by food.serving.unit: 4 × 0.5 cup = 2 cups; 0.4 × 100 g = 40 g. Nutrients already describe this consumed portion; do not multiply them again. */
+  "quantity": number;
   /** Selected catalog serving definition; its quantity is the size of one serving, not the amount eaten. */
   "serving": (ServingSummary);
-  /** Nutrition for the consumed portion, already scaled by quantity. */
+  /** Nutrition for the consumed portion, already scaled by quantity. Send the analysis back unchanged for corrections. */
   "nutrients": (NutritionFacts);
 };
 
@@ -132,7 +200,7 @@ export type DietRestriction = "gluten" | "lactose" | "yeast" | "tree_nuts" | "pe
 export type ErrorResponse = {
   /** A developer-facing explanation of what went wrong and how to fix it. */
   "message": string;
-  /** A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.  Any request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `payload_too_large` (413), `rate_limited` (429), `request_limit_exceeded` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 409 or 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.  `cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.  Client tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.  Three more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called a food-log operation with no January-End-User-ID header), `date_range_too_large` (400 — a food-log date range past the documented maximum), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).  `POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.  Retry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Three more the status code alone gets wrong. **Two 429s must never be retried**, because both reopen only at the start of the next calendar month: `credit_limit_exceeded` (the monthly credit allowance) and `request_limit_exceeded` (the monthly request allowance). A client that backs off on every 429 will spin until then; neither sends `Retry-After`, and the message names the reset instant — `GET /v1.2/credits` returns it as the resets_at field. `rate_limited` is the 429 that *is* worth retrying: a per-endpoint limit, or the rolling 24-hour burst guard over the monthly ceiling, so its window is at most a day. And `token_expired` is refreshed, not retried — mint a new token, then retry once.  New codes may be added over time; treat an unknown code according to its HTTP status class. */
+  /** A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.  Any request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `payload_too_large` (413), `rate_limited` (429), `request_limit_exceeded` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.  `conflict` (409) means the request conflicts with an existing resource, such as an Idempotency-Key reused with different files. Resolve the conflict before retrying.  `cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.  Client tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.  Four more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called an operation that documents the January-End-User-ID header without sending it), `date_range_too_large` (400 — a date range past the operation's documented maximum or lookback), `daily_water_limit_exceeded` (400 — a water log that would take the end user's total for its day past 24 L; not retryable), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).  `POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.  Retry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Three more the status code alone gets wrong. **Two 429s must never be retried**, because both reopen only at the start of the next calendar month: `credit_limit_exceeded` (the monthly credit allowance) and `request_limit_exceeded` (the monthly request allowance). A client that backs off on every 429 will spin until then; neither sends `Retry-After`, and the message names the reset instant — `GET /v1.2/credits` returns it as the resets_at field. `rate_limited` is the 429 that *is* worth retrying: a per-endpoint limit, or the rolling 24-hour burst guard over the monthly ceiling, so its window is at most a day. And `token_expired` is refreshed, not retried — mint a new token, then retry once.  New codes may be added over time; treat an unknown code according to its HTTP status class. */
   "code": string;
 };
 
@@ -210,7 +278,7 @@ export type FoodLogSummaryTotals = {
 };
 
 export type FoodScan = {
-  /** A name for the meal as a whole. Null on text analyses — the caller already has the words. */
+  /** A name for the meal as a whole. Null on text analyses — the caller already has the words. Corrections preserve a null meal name. */
   "mealName": (string) | null;
   /** Aggregated nutrition across all detections. Always present; individual keys are omitted when no producer had a value. */
   "totalNutrients": (NutritionFacts);
@@ -313,6 +381,7 @@ export type GlucosePredictionProfile = {
 };
 
 export type Height = {
+  /** Accepted range depends on unit: 20–108 in, 50–275 cm. */
   "value": number;
   "unit": HeightUnit;
 };
@@ -325,9 +394,19 @@ export type ListFoodLogsResponse = {
   "items": Array<FoodLog>;
 };
 
+export type ListWaterLogsResponse = {
+  /** One entry per local day with water logged, oldest first. Days with nothing logged are absent. An empty list is a valid result. */
+  "items": Array<DailyWaterTotal>;
+};
+
+export type ListWeightLogsResponse = {
+  /** One entry per day that has a weight, oldest first. Days with no weight are absent. An empty list is a valid result. */
+  "items": Array<DailyWeight>;
+};
+
 export type LoggedFood = {
-  /** Food id from a search or food-analysis result. Null only when the upstream sent a food with no id. */
-  "foodId": (string) | null;
+  /** Food id from a search or food-analysis result. */
+  "foodId": string;
   /** Null only when the upstream sent none. */
   "name": (string) | null;
   /** Null for generic (non-branded) foods. */
@@ -337,10 +416,10 @@ export type LoggedFood = {
   "glycemicLoad": (number) | null;
   /** Scaled to the consumed quantity. */
   "nutrients": (NutritionFacts);
-  /** How many of the serving below were consumed. Null only when the upstream sent no consumed quantity. */
+  /** Number of selected servings consumed. Consumed amount = food.quantity × food.serving.quantity, in food.serving.unit (4 × 0.5 cup = 2 cups). Nutrients are already scaled to this portion. Null when unavailable. */
   "quantity": (number) | null;
   /** The serving definition the quantity refers to. */
-  "serving": (ServingDetails);
+  "serving": (ServingSummary);
 };
 
 export const MedicalCondition = {"type2Diabetes":"type_2_diabetes","prediabetes":"prediabetes"} as const;
@@ -348,9 +427,11 @@ export type MedicalCondition = "type_2_diabetes" | "prediabetes" | (string & {})
 
 export type NutrientAmount = {
   "value": number;
-  /** Canonical across the API: g, mg, kcal, IU. */
-  "unit": string;
+  "unit": NutrientUnit;
 };
+
+export const NutrientUnit = {"g":"g","mg":"mg","kcal":"kcal","iU":"IU","mcg":"mcg"} as const;
+export type NutrientUnit = "g" | "mg" | "kcal" | "IU" | "mcg" | (string & {});
 
 export type NutritionFacts = {
   "calories"?: NutrientAmount;
@@ -404,8 +485,8 @@ export type Restaurant = {
 };
 
 export type RestaurantMenuItem = {
-  /** Food id of the dish — the same id `GET /v1.2/foods/{food_id}` and `POST /v1.2/food-logs` take. Null only when the menu source carries no id for the row. */
-  "id": (string) | null;
+  /** Food id of the dish — the same id `GET /v1.2/foods/{food_id}` and `POST /v1.2/food-logs` take. */
+  "id": string;
   /** Null only when the menu source has no name for the dish. */
   "name": (string) | null;
   /** Per-serving nutrition in the shared nutrient vocabulary. Keys are omitted when the menu source has no value. */
@@ -451,7 +532,7 @@ export type RevokeClientTokensBody = {
 export type ScanFoodPhotoBody = {
   /** The food photo — the food itself or a packaged product's label — as an http(s) URL or a base64 data URI (data:image/jpeg;base64,…). Formats: JPG, PNG, WEBP, and non-animated GIF. Around 1,024 px on the shorter side is enough for reliable results (a recommendation, not a validation rule). A URL must be publicly fetchable server-side — hosts that block hotlinking or require a login cannot be read — and has no enforced size cap, though very large files slow the analysis and can time out. Base64 must be a complete data URI and fit the 5 MB request-body cap, so keep raw images under ~3.5 MB before encoding (base64 inflates by ~33%). Prefer the URL when the image is already hosted. */
   "image": string;
-  /** Controls analysis effort. Omit it or set `effort` to `none` to use the standard analyzer; `xhigh` uses the reasoning-based analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost. */
+  /** Controls analysis effort. Omit it or set `effort` to `xhigh` to use the reasoning-based analyzer; `none` uses the standard analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost. */
   "reasoning"?: (AnalysisReasoning);
 };
 
@@ -470,22 +551,11 @@ export type SearchRestaurantsResponse = {
   "items": Array<Restaurant>;
 };
 
-export type ServingDetails = {
-  /** Null only when the upstream sent a serving with no id. */
-  "id": (string) | null;
-  /** How many units make up one of this serving, e.g. 1 for "1 cup". Null when the upstream reported none. */
-  "quantity": (number) | null;
-  /** Null only when the upstream sent a serving with no unit. */
-  "unit": (string) | null;
-  /** Null when the upstream has no gram weight for this serving. */
-  "weightGrams": (number) | null;
-};
-
 export type ServingId = string;
 
 export type ServingOption = {
   /** Opaque serving id; may look numeric but is always a string. */
-  "id": (string) | null;
+  "id": string;
   "quantity": (number) | null;
   "unit": (string) | null;
   /** Multiplier applied to the food's nutrition values for this serving. */
@@ -496,12 +566,14 @@ export type ServingOption = {
 };
 
 export type ServingSummary = {
-  /** Null only when the producer sent a serving with no id. */
-  "id": (string) | null;
-  /** How much of `unit` this serving is; null when the producer reported none. */
-  "quantity": (number) | null;
+  /** Catalog serving id. Pass it back as serving_id when logging this food. */
+  "id": string;
+  /** Positive amount of unit represented by this serving definition. In food analysis and food logs this is one catalog serving: consumed amount = food.quantity × food.serving.quantity (4 × 0.5 cup = 2 cups). Food alternatives instead report their recommended portion amount here. */
+  "quantity": number;
   /** Null only when the producer sent a serving with no unit. */
   "unit": (string) | null;
+  /** Weight in grams of this serving definition. For food analysis and food logs this is one catalog serving, not the consumed portion: consumed grams = food.quantity × food.serving.weight_grams. Null when unknown. */
+  "weightGrams": (number) | null;
 };
 
 export const Sex = {"male":"male","female":"female"} as const;
@@ -526,9 +598,43 @@ export type UpdateFoodLogBody = {
   "name"?: string;
 };
 
+export type Volume = {
+  /** Rounded to one decimal place. */
+  "value": number;
+  "unit": VolumeUnit;
+};
+
+export const VolumeUnit = {"flOz":"fl_oz","ml":"ml","cup":"cup"} as const;
+export type VolumeUnit = "fl_oz" | "ml" | "cup" | (string & {});
+
+export type WaterAmount = {
+  /** Accepted range depends on unit: 1–811.5 fl_oz, 0.125–101.4 cup, 30–24000 ml. */
+  "value": number;
+  "unit": VolumeUnit;
+};
+
+export type WaterLog = {
+  /** Save this id to delete the log. */
+  "id": string;
+  /** The amount as logged, in the unit it was sent in. */
+  "amount": (WaterAmount);
+  /** When the water was consumed. UTC, with milliseconds. */
+  "consumedAt": string;
+};
+
+export type WaterLogId = string;
+
 export type Weight = {
+  /** Accepted range depends on unit: 2–1500 lb, 1–700 kg. */
   "value": number;
   "unit": WeightUnit;
+};
+
+export type WeightLog = {
+  /** The weight as logged, in the unit it was sent in. */
+  "weight": (Weight);
+  /** When the weight was measured. UTC, with milliseconds. */
+  "measuredAt": string;
 };
 
 export const WeightUnit = {"lb":"lb","kg":"kg"} as const;
@@ -537,8 +643,8 @@ export type WeightUnit = "lb" | "kg" | (string & {});
 export type CreateClientTokenRequest = {
   /** Your stable ID for the end user this token acts as. The token is bound to it; requests made with the token act only on this user. */
   "endUserId": string;
-  /** What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `["foods:read"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read. */
-  "scopes": Array<"foods:read" | "food_analysis:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | (string & {})>;
+  /** What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `["foods:read"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read, water_logs:read, water_logs:write, weight_logs:read, weight_logs:write. */
+  "scopes": Array<"foods:read" | "food_analysis:write" | "food_logs:read" | "food_logs:write" | "glucose:read" | "restaurants:read" | "water_logs:read" | "water_logs:write" | "weight_logs:read" | "weight_logs:write" | (string & {})>;
   /** How long the token stays valid, in seconds. Between 300 and 7200; defaults to 1800. */
   "ttlSeconds"?: number;
 } & { signal?: AbortSignal };
@@ -606,7 +712,7 @@ export type SearchRestaurantMenuItemsRequest = {
 export type ScanFoodPhotoRequest = {
   /** The food photo — the food itself or a packaged product's label — as an http(s) URL or a base64 data URI (data:image/jpeg;base64,…). Formats: JPG, PNG, WEBP, and non-animated GIF. Around 1,024 px on the shorter side is enough for reliable results (a recommendation, not a validation rule). A URL must be publicly fetchable server-side — hosts that block hotlinking or require a login cannot be read — and has no enforced size cap, though very large files slow the analysis and can time out. Base64 must be a complete data URI and fit the 5 MB request-body cap, so keep raw images under ~3.5 MB before encoding (base64 inflates by ~33%). Prefer the URL when the image is already hosted. */
   "image": string;
-  /** Controls analysis effort. Omit it or set `effort` to `none` to use the standard analyzer; `xhigh` uses the reasoning-based analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost. */
+  /** Controls analysis effort. Omit it or set `effort` to `xhigh` to use the reasoning-based analyzer; `none` uses the standard analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost. */
   "reasoning"?: (AnalysisReasoning);
 } & { signal?: AbortSignal };
 
@@ -616,8 +722,8 @@ export type SearchFoodsByNaturalLanguageRequest = {
 } & { signal?: AbortSignal };
 
 export type CorrectPhotoScanRequest = {
-  /** The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically, and `total_nutrients` is recalculated rather than trusted — send it or leave it out, it makes no difference. */
-  "analysis": (FoodScan);
+  /** The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically. `meal_name` may be omitted (treated as null); `total_nutrients` may be omitted because it is recalculated rather than trusted. Older results may omit serving `weight_grams`; it is treated as unknown. The forwarded nutrients (calories, protein, carbohydrates, net_carbohydrates, total_fat, saturated_fat, fiber, total_sugars, added_sugars, sodium) must each have a `value` from 0 to 1000000 and a `unit` of at most 16 characters; every analysis result already satisfies this. A detection the analysis returned incomplete — with a null `name` or serving `unit` — is left out of the corrected result, because the correction model needs what it lacks; describe that food in `instruction` if it belongs in the meal. */
+  "analysis": (CorrectionAnalysis);
   /** Plain-English description of what to correct. */
   "instruction": string;
 } & { signal?: AbortSignal };
@@ -663,6 +769,42 @@ export type UpdateFoodLogRequest = {
 export type DeleteFoodLogRequest = {
   "endUserId"?: PartnerUserId;
   "logId": FoodLogId;
+} & { signal?: AbortSignal };
+
+export type CreateWaterLogRequest = {
+  "endUserId"?: PartnerUserId;
+  /** How much water. An end user's total is capped at 24 L (about 811 fl oz) per day. */
+  "amount": (WaterAmount);
+  /** When the water was consumed — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. Its day is the one the daily cap counts it against. */
+  "consumedAt"?: string | Date;
+} & { signal?: AbortSignal };
+
+export type ListWaterLogsRequest = {
+  "endUserId"?: PartnerUserId;
+  "startDate": string;
+  "endDate": string;
+  "timezone": string;
+  "unit": VolumeUnit;
+} & { signal?: AbortSignal };
+
+export type DeleteWaterLogRequest = {
+  "endUserId"?: PartnerUserId;
+  "logId": WaterLogId;
+} & { signal?: AbortSignal };
+
+export type CreateWeightLogRequest = {
+  "endUserId"?: PartnerUserId;
+  /** The measured weight. `value` must be 10–1000 for `lb`, or 4.5–453.6 for `kg`; it is stored and returned in the unit sent. */
+  "weight": (Weight);
+  /** When the weight was measured — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. */
+  "measuredAt"?: string | Date;
+} & { signal?: AbortSignal };
+
+export type ListWeightLogsRequest = {
+  "endUserId"?: PartnerUserId;
+  "startDate": string;
+  "endDate": string;
+  "timezone": string;
 } & { signal?: AbortSignal };
 
 export type PredictGlucoseRequest = {
