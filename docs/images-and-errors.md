@@ -68,8 +68,10 @@ waiting. Excessive waits return immediately with `retryNote`; cancellation
 interrupts waiting. The deadline includes all attempts and body reading.
 
 Revocation is never retried. Token, food-log, water-log, and weight-log creation
-are not replayed after ambiguous failures. Deleting a water log is idempotent and
-retry-safe. Analysis/read retries may consume extra credits. Default
+are never replayed after an ambiguous failure (a timeout, lost response, or 5xx
+reply), because the API may already have recorded the write; a 429 `rate_limited`
+reply is a definitive rejection that recorded nothing, so it is retried within the
+same limits. Deleting a water log is idempotent and retry-safe. Analysis/read retries may consume extra credits. Default
 timeout is 30 seconds, or 120 for photo/description analysis and correction.
 Quickstart and production E2E runners explicitly disable retries.
 

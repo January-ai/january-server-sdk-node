@@ -287,7 +287,7 @@ Send a scan result back to `foodAnalysis.correct` as its `analysis` unchanged; t
 
 ### Water and weight logs
 
-Water is logged as an amount in `fl_oz` (1–811.5), `cup` (0.125–101.4), or `ml` (30–24000); the daily list returns one total per local day in the unit you ask for. Weight is logged in `lb` or `kg`; the daily list returns the latest measurement per local day. Dates are local calendar days in the `timezone` you pass.
+Water is logged as an amount in `fl_oz` (1–811.5), `cup` (0.125–101.4), or `ml` (30–24000); a value outside its unit's range throws `JanuaryValidationError` before any request. The daily list returns one total per local day in the unit you ask for. Weight is logged in `lb` or `kg`; the daily list returns the latest measurement per local day. Dates are local calendar days in the `timezone` you pass.
 
 ```ts
 const water = await user.waterLogs.create({ amount: { value: 8, unit: 'fl_oz' } });
@@ -370,7 +370,7 @@ await user.foods.search(
 ```
 
 - Default overall timeout: 30 seconds, including response body reading.
-- Two bounded retries by default, controlled with `maxRetries` (zero disables). Stable API error codes drive retries; credit exhaustion and permanent failures are never retried. Revocation is single-attempt, and token/food-log creation are not replayed after ambiguous failures. No automatic pagination, idempotency keys, or background calls. Retried analysis can consume additional credits. See [photos, errors and retries](docs/images-and-errors.md).
+- Two bounded retries by default, controlled with `maxRetries` (zero disables). Stable API error codes drive retries; credit exhaustion and permanent failures are never retried. Revocation is single-attempt. Token, food-log, water-log, and weight-log creation are never replayed after an ambiguous failure (a timeout, lost response, or 5xx reply); a 429 `rate_limited` reply recorded nothing, so it is retried like any other request. No automatic pagination, idempotency keys, or background calls. Retried analysis can consume additional credits. See [photos, errors and retries](docs/images-and-errors.md).
 - `signal` is also accepted on request objects for client-style compatibility.
 - Configure `timeoutMs` at construction to set the request timeout. Tests can inject a mock `fetch` transport.
 - Default production origin uses HTTPS. Plain HTTP is only accepted for localhost or an explicit test transport. Redirects are refused to avoid credential forwarding.
