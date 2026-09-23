@@ -167,3 +167,36 @@ test('impossible calendar dates are rejected, not rolled into the next month', a
   await user.waterLogs.list({ startDate: '2028-02-29', endDate: '2028-02-29', timezone: 'UTC', unit: 'ml' });
   assert.equal(requests.length, 1);
 });
+
+test('a weight must be within the range of its unit and endpoint', async () => {
+  // Weight is shared: a glucose profile takes 2–1500 lb or 1–700 kg; a weight log
+  // narrows that to 10–1000 lb or 4.5–453.6 kg.
+  const log = capture(byId.createWeightLog);
+  const predict = capture(byId.predictGlucose);
+  const profile = weight => ({ age: 30, sex: 'male', height: { value: 175, unit: 'cm' }, weight });
+  const food = { foodId: '84222716', servingId: '67943292', quantity: 1 };
+  const send = {
+    log: weight => log.client.forUser('user').weightLogs.create({ weight }),
+    glucose: weight => predict.client.glucose.predict({ userProfile: profile(weight), timezone: 'UTC', foods: [food], startTime: '2026-09-10T12:00:00Z' }),
+  };
+  const sent = { log: () => log.requests.length, glucose: () => predict.requests.length };
+  for (const [endpoint, unit, accepted, refused] of [
+    ['log', 'lb', [10, 150, 1000], [2, 9.99, 1000.1, 1500]],
+    ['log', 'kg', [4.5, 70, 453.6], [1, 4.49, 453.7, 700]],
+    ['glucose', 'lb', [2, 9.99, 1000.1, 1500], [1, 1.99, 1500.1]],
+    ['glucose', 'kg', [1, 4.49, 453.7, 700], [0.99, 700.1, 1000]],
+  ]) {
+    for (const value of accepted) {
+      const before = sent[endpoint]();
+      await send[endpoint]({ value, unit });
+      assert.equal(sent[endpoint](), before + 1, `${endpoint} ${value} ${unit}`);
+    }
+    for (const value of refused) {
+      const before = sent[endpoint]();
+      await assert.rejects(send[endpoint]({ value, unit }), JanuaryValidationError, `${endpoint} ${value} ${unit}`);
+      assert.equal(sent[endpoint](), before, `${endpoint} ${value} ${unit} was sent`);
+    }
+  }
+  await assert.rejects(send.log({ value: 700, unit: 'kg' }), /request\.weight\.value must be from 4\.5 through 453\.6 kg/);
+  await assert.rejects(send.glucose({ value: 1000, unit: 'kg' }), /request\.userProfile\.weight\.value must be from 1 through 700 kg/);
+});
