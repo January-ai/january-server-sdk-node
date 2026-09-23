@@ -39,7 +39,7 @@ test('bounded code-aware retries and single-request operations',async t => {
   }
   assert.equal(retryDelay(operations.revokeClientTokens,new RateLimitError('rate',429),0,0),undefined);
   for (const status of [400,401,403,404,413,429,500,501,502,503,504]) {
-    for (const code of ['credit_limit_exceeded','request_limit_exceeded','invalid_request','unauthorized','forbidden','not_found','not_implemented','payload_too_large','end_user_id_required','date_range_too_large','daily_water_limit_exceeded']) assert.equal(retryableStatus(status,code),false);
+    for (const code of ['credit_limit_exceeded','request_limit_exceeded','invalid_request','unauthorized','forbidden','not_found','conflict','not_implemented','payload_too_large','end_user_id_required','date_range_too_large','daily_water_limit_exceeded']) assert.equal(retryableStatus(status,code),false);
   }
   for (const status of [429,500,502,503,504]) assert.equal(retryableStatus(status,'future_code'),true);
 });

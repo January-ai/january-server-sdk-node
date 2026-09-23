@@ -13,7 +13,7 @@ export function retryCount(value: number): number {
 
 export function retryableStatus(status: number, code?: string): boolean {
   if (['rate_limited','internal_error','upstream_error','service_unavailable','upstream_timeout'].includes(code ?? '')) return true;
-  if (['credit_limit_exceeded','request_limit_exceeded','invalid_request','unauthorized','forbidden','not_found','not_implemented','payload_too_large','end_user_id_required','date_range_too_large','daily_water_limit_exceeded'].includes(code ?? '')) return false;
+  if (['credit_limit_exceeded','request_limit_exceeded','invalid_request','unauthorized','forbidden','not_found','conflict','not_implemented','payload_too_large','end_user_id_required','date_range_too_large','daily_water_limit_exceeded'].includes(code ?? '')) return false;
   return [429,500,502,503,504].includes(status);
 }
 
