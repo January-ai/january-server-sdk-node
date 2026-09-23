@@ -72,9 +72,12 @@ try {
     const mode=loader.includes('await import')?'module':'commonjs';
     run(process.execPath,['--input-type='+mode,'-e',loader+"(async()=>{if(await prepareImage('https://example.invalid/food.jpg')!=='https://example.invalid/food.jpg')throw Error('URL changed')})().catch(()=>process.exit(1));"],consumer);
   }
+  // The token-issuing consumer runs its own local service against the installed package.
+  await copyFile('test/consumer.mjs', join(consumer, 'consumer.mjs'));
+  assert.match(run(process.execPath, ['consumer.mjs'], consumer), /Installed Node consumer: .* passed/);
   const browser = spawnSync(process.execPath, ['--conditions=browser', '--input-type=module', '-e', "import '@januaryai/server'"], { cwd: consumer, encoding: 'utf8' });
   assert.notEqual(browser.status, 0); assert.match(browser.stderr, /Node.js-only/);
-  console.log(`Installed ESM + CommonJS consumers and JavaScript + TypeScript README quick starts passed: 14 local HTTP calls, exactly one revocation per compatibility flow. Artifact: ${join(consumer, packed.filename)}`);
+  console.log(`Installed ESM + CommonJS consumers, the token-issuing consumer, and JavaScript + TypeScript README quick starts passed: 14 local HTTP calls, exactly one revocation per compatibility flow. Artifact: ${join(consumer, packed.filename)}`);
 } finally {
   await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
 }
