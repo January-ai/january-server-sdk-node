@@ -200,3 +200,27 @@ test('a weight must be within the range of its unit and endpoint', async () => {
   await assert.rejects(send.log({ value: 700, unit: 'kg' }), /request\.weight\.value must be from 4\.5 through 453\.6 kg/);
   await assert.rejects(send.glucose({ value: 1000, unit: 'kg' }), /request\.userProfile\.weight\.value must be from 1 through 700 kg/);
 });
+
+test('a glucose profile height must be within the range of its unit', async () => {
+  const { client, requests } = capture(byId.predictGlucose);
+  const predict = height => client.glucose.predict({
+    userProfile: { age: 30, sex: 'male', height, weight: { value: 70, unit: 'kg' } },
+    timezone: 'UTC', foods: [{ foodId: '84222716', servingId: '67943292', quantity: 1 }], startTime: '2026-09-10T12:00:00Z',
+  });
+  for (const [unit, accepted, refused] of [
+    ['in', [20, 65, 108], [19.9, 108.1, 200, 275]],
+    ['cm', [50, 175, 275], [20, 49.9, 275.1]],
+  ]) {
+    for (const value of accepted) {
+      const before = requests.length;
+      await predict({ value, unit });
+      assert.equal(requests.length, before + 1, `${value} ${unit}`);
+    }
+    for (const value of refused) {
+      const before = requests.length;
+      await assert.rejects(predict({ value, unit }), JanuaryValidationError, `${value} ${unit}`);
+      assert.equal(requests.length, before, `${value} ${unit} was sent`);
+    }
+  }
+  await assert.rejects(predict({ value: 200, unit: 'in' }), /request\.userProfile\.height\.value must be from 20 through 108 in/);
+});
