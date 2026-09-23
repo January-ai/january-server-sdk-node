@@ -25,7 +25,7 @@ async function temporaryRoot(t) {
   return root;
 }
 
-async function service(t, { fail = {}, timeoutMint = false, hostile = false, drop = {}, malformed = {} } = {}) {
+async function service(t, { fail = {}, timeoutMint = false, hostile = false, drop = {}, malformed = {}, shifted = {} } = {}) {
   const requests = [];
   const logs = new Map();
   const waterLogs = new Map();
@@ -112,6 +112,8 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false, dro
       if (drop[operationId]) { req.socket.destroy(); return; }
       // The write is recorded, but the success reply does not match what was sent.
       if (malformed[operationId]) result = { ...result, weight: { value: 76, unit: 'kg' } };
+      // The write is recorded, but the reply names a different measurement time.
+      if (shifted[operationId]) result = { ...result, measured_at: new Date(Date.parse(result.measured_at) + 60_000).toISOString() };
       if (operationId === 'listWeightLogs') {
         assert.equal(url.searchParams.get('timezone'), 'UTC');
         result = { items: weightLogs.has(userId) ? [{ date: url.searchParams.get('start_date'), weight: { value: 75, unit: 'kg' } }] : [] };
@@ -238,7 +240,7 @@ test('a rejected water create needs no cleanup and names no user', async t => {
 });
 
 test('a weight create with no usable reply is reported with the user and time', async t => {
-  for (const scenario of [{ drop: { createWeightLog: true } }, { fail: { createWeightLog: 503 } }, { malformed: { createWeightLog: true } }]) {
+  for (const scenario of [{ drop: { createWeightLog: true } }, { fail: { createWeightLog: 503 } }, { malformed: { createWeightLog: true } }, { shifted: { createWeightLog: true } }]) {
     const result = await execute(t, scenario);
     assert.equal(result.report.results.find(r => r.operation === 'weightLogs.create').status, 'FAIL');
     assert.deepEqual(result.report.retained, []);

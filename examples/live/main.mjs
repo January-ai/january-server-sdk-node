@@ -283,7 +283,8 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
         throw error;
       }
       // A success reply the runner cannot confirm leaves the weight's state unknown.
-      if (!(result?.weight?.value === 75 && result.weight.unit === 'kg' && Number.isFinite(Date.parse(result.measuredAt)))) {
+      // The API returns the stored time in UTC with milliseconds; compare instants.
+      if (!(result?.weight?.value === 75 && result.weight.unit === 'kg' && Date.parse(result.measuredAt) === Date.parse(timestamp))) {
         recordUnconfirmed('cleanup.weightLogs.unconfirmed', 'weight_log_create_unconfirmed');
         throw new CheckError('created_weight_log_invalid');
       }
