@@ -4,7 +4,7 @@
 [![Node.js 22+](https://img.shields.io/badge/node-22%2B-brightgreen.svg)](https://github.com/January-ai/january-server-sdk-node/blob/main/package.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/January-ai/january-server-sdk-node/blob/main/LICENSE)
 
-Use January's food search, barcode lookup, food analysis, food logs, and glucose prediction from a trusted Node.js backend. Includes local serving calculations and server-only token and credit operations.
+Use January's food search, barcode lookup, food analysis, food, water and weight logs, and glucose prediction from a trusted Node.js backend. Includes local serving calculations and server-only token and credit operations.
 
 Requires Node.js 22+. Supports TypeScript, ESM, and CommonJS. No runtime dependencies. Server API keys must never be shipped to browsers or mobile apps; browser imports are rejected.
 
@@ -268,6 +268,8 @@ Shared resources are available on the root client and on `january.forUser(...)`.
 | `restaurants` | `search`, `getMenuItems`, `searchMenuItems` |
 | `foodAnalysis` | `analyzePhoto`, `analyzeDescription`, `correct` |
 | `foodLogs` | `list`, `get`, `getSummary`, `create`, `update`, `delete` |
+| `waterLogs` | `create`, `list`, `delete` |
+| `weightLogs` | `create`, `list` |
 | `glucose` | `predict` |
 
 These fragments assume `user` from the quick start. Each awaited call uses the API:
@@ -279,7 +281,28 @@ const analysis = await user.foodAnalysis.analyzeDescription({
 });
 ```
 
-Use string `foodId`, string `barcode`, `query` for description analysis, an image URL or data URI for photo analysis, and string `logId` for food logs. Use `restaurants.getMenuItems` with a restaurant ID, or `searchMenuItems` with a location and query. Typed signatures and model definitions are included in the package.
+Use string `foodId`, string `barcode`, `query` for description analysis, an image URL or data URI for photo analysis, and string `logId` for food and water logs. Use `restaurants.getMenuItems` with a restaurant ID, or `searchMenuItems` with a location and query. Typed signatures and model definitions are included in the package.
+
+Send a scan result back to `foodAnalysis.correct` as its `analysis` unchanged; the SDK forwards every detection, serving, and nutrient. `foodLogs.update` sends only the fields you set and rejects a patch with none.
+
+### Water and weight logs
+
+Water is logged as an amount in `fl_oz` (1–811.5), `cup` (0.1–101.4), or `ml` (30–24000); a value outside its unit's range throws `JanuaryValidationError` before any request, as does a weight log outside 10–1000 `lb` or 4.5–453.6 `kg`, a glucose profile weight outside 2–1500 `lb` or 1–700 `kg`, or a glucose profile height outside 20–108 `in` or 50–275 `cm`. The daily list returns one total per local day in the unit you ask for. Weight is logged in `lb` or `kg`; the daily list returns the latest measurement per local day. Dates are local calendar days in the `timezone` you pass.
+
+```ts
+const water = await user.waterLogs.create({ amount: { value: 8, unit: 'fl_oz' } });
+const totals = await user.waterLogs.list({
+  startDate: '2026-09-01', endDate: '2026-09-30', timezone: 'America/New_York', unit: 'fl_oz',
+});
+await user.waterLogs.delete({ logId: water.id }); // idempotent
+
+await user.weightLogs.create({ weight: { value: 165, unit: 'lb' } });
+const weights = await user.weightLogs.list({
+  startDate: '2026-09-01', endDate: '2026-09-30', timezone: 'America/New_York',
+});
+```
+
+Omit `consumedAt` or `measuredAt` to log now. A water log that would take the day past 24 liters is rejected with `daily_water_limit_exceeded`; a range that starts more than five years ago is rejected with `date_range_too_large`. Both are `BadRequestError` and are never retried.
 
 ### Serving and quantity calculations
 
@@ -314,6 +337,9 @@ const token = await january.createClientToken({
   ttlSeconds: 1800,
 });
 // Relay token.token only to that authenticated user's client. Never log it.
+// Scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write,
+// glucose:read, restaurants:read, water_logs:read, water_logs:write,
+// weight_logs:read, weight_logs:write (also on the ClientScope constant).
 ```
 
 ```ts
@@ -344,7 +370,7 @@ await user.foods.search(
 ```
 
 - Default overall timeout: 30 seconds, including response body reading.
-- Two bounded retries by default, controlled with `maxRetries` (zero disables). Stable API error codes drive retries; credit exhaustion and permanent failures are never retried. Revocation is single-attempt, and token/food-log creation are not replayed after ambiguous failures. No automatic pagination, idempotency keys, or background calls. Retried analysis can consume additional credits. See [photos, errors and retries](docs/images-and-errors.md).
+- Two bounded retries by default, controlled with `maxRetries` (zero disables). Stable API error codes drive retries; credit exhaustion and permanent failures are never retried. Revocation is single-attempt. Token, food-log, water-log, and weight-log creation are never replayed after an ambiguous failure (a timeout, lost response, or 5xx reply); a 429 `rate_limited` reply recorded nothing, so it is retried like any other request. No automatic pagination, idempotency keys, or background calls. Retried analysis can consume additional credits. See [photos, errors and retries](docs/images-and-errors.md).
 - `signal` is also accepted on request objects for client-style compatibility.
 - Configure `timeoutMs` at construction to set the request timeout. Tests can inject a mock `fetch` transport.
 - Default production origin uses HTTPS. Plain HTTP is only accepted for localhost or an explicit test transport. Redirects are refused to avoid credential forwarding.
@@ -387,7 +413,7 @@ To run the repository examples and tests, follow the [contributor setup](CONTRIB
 | Installed package checks | `npm run test:distribution` | Loopback fixtures only |
 | Full live E2E | `npm run test:e2e` | Explicit opt-in; billable calls and synthetic writes |
 
-The full live workflow is not the quick start. It exercises all 21 operations, including token creation/revocation and temporary food-log creation/deletion. Read [live testing and cleanup](docs/live-testing.md) before running it. Default tests and CI never load production keys.
+The full live workflow is not the quick start. It exercises all 26 operations, including token creation/revocation, temporary food-log and water-log creation/deletion, and a weight log that stays on the run's synthetic user. Read [live testing and cleanup](docs/live-testing.md) before running it. Default tests and CI never load production keys.
 
 ## Distribution and releases
 

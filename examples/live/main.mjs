@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { January } from '../../dist/index.js';
+import { January, JanuaryApiError, JanuaryValidationError } from '../../dist/index.js';
 import { operations } from '../../dist/generated/operations.js';
 
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -11,6 +11,7 @@ export const operationLabels = Object.freeze([
   'foods.suggestAlternatives', 'restaurants.search', 'restaurants.getMenuItems', 'restaurants.searchMenuItems',
   'foodAnalysis.analyzePhoto', 'foodAnalysis.analyzeDescription', 'foodAnalysis.correct',
   'foodLogs.create', 'foodLogs.list', 'foodLogs.getSummary', 'foodLogs.get', 'foodLogs.update', 'foodLogs.delete',
+  'waterLogs.create', 'waterLogs.list', 'waterLogs.delete', 'weightLogs.create', 'weightLogs.list',
   'glucose.predict', 'createClientToken', 'revokeClientTokens',
 ]);
 const keys = ['JANUARY_API_KEY', 'JANUARY_E2E_TIMEOUT_SECONDS', 'JANUARY_E2E_UPC', 'JANUARY_E2E_QUERY', 'JANUARY_E2E_RESTAURANT_QUERY', 'JANUARY_E2E_LATITUDE', 'JANUARY_E2E_LONGITUDE', 'JANUARY_E2E_IMAGE_PATH'];
@@ -98,22 +99,42 @@ function selectionFrom(food) {
   return { foodId: food.id, servingId: serving.id, quantity: 1 };
 }
 
+/** The synthetic end user each run creates for itself; the runner writes logs for no other user. */
+const runUserPrefix = 'sdk-e2e-node-';
+
+/**
+ * Whether a failed create may still have been recorded. Local validation errors and
+ * 4xx replies are definitive rejections; a transport error, timeout, 5xx reply, or
+ * malformed success reply leaves the outcome unknown.
+ */
+function createOutcomeUnknown(error) {
+  if (error instanceof JanuaryValidationError || error instanceof CheckError) return false;
+  if (error instanceof JanuaryApiError) return error.status >= 500;
+  return true;
+}
+
 /** Explicit invocation only. Each execution creates its own non-overridable user. */
 export async function runLive(config, { emit = line => console.log(line), fetchImpl = globalThis.fetch } = {}) {
   const started = performance.now();
-  const endUserId = `sdk-e2e-node-${randomUUID()}`;
+  const endUserId = `${runUserPrefix}${randomUUID()}`;
   const secrets = [config.apiKey, endUserId, config.query, config.restaurantQuery];
   const client = new January({ secretKey: config.apiKey, timeoutMs: config.timeoutMs, fetch: fetchImpl, maxRetries:0 });
   const user = client.forUser({ endUserId, endUserTimezone: 'UTC' });
   const rows = new Map();
   const cleanup = [];
   const extra = [];
+  const retained = [];
+  // Writes the runner cannot clean up: a water log is deletable only by the ID its
+  // create returns (the list endpoint returns daily totals), and a weight log cannot
+  // be deleted at all. Each names the run's synthetic user and time for server-side removal.
+  const unconfirmed = [];
   const ownLogs = new Set();
   const timestamp = new Date().toISOString();
   const day = timestamp.slice(0, 10);
   let mintAttempted = false;
   let createAttempted = false;
   let createdLogId;
+  let createdWaterLogId;
   let logDiscoveryNeeded = false;
   let selected;
   let foodId;
@@ -121,7 +142,8 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
   let photo;
   let description;
   let token;
-  const output = row => emit(`${row.operation} ${row.status}${row.code ? ` code=${row.code}` : ''}${row.requestId ? ` requestID=${row.requestId}` : ''}`);
+  const output = row => emit(`${row.operation} ${row.status}${row.code ? ` code=${row.code}` : ''}${row.requestId ? ` requestID=${row.requestId}` : ''}${row.endUserId ? ` endUserId=${row.endUserId} at=${row.at}` : ''}`);
+  const recordUnconfirmed = (operation, code) => unconfirmed.push({ operation, status: 'FAIL', code, endUserId, at: timestamp, durationMs: 0 });
   async function step(operation, action, { dependencies = [], target = rows, reason } = {}) {
     const blockedBy = dependencies.filter(label => rows.get(label)?.status !== 'PASS');
     if (blockedBy.length || reason) {
@@ -229,6 +251,58 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       const result = await user.foodLogs.update({ logId: createdLogId, name: 'SDK E2E meal updated' }, options);
       requireCheck(result.id === createdLogId && result.name === 'SDK E2E meal updated'); return result;
     }, { dependencies: ['foodLogs.create'] });
+    await step('waterLogs.create', async options => {
+      let result;
+      try { result = await user.waterLogs.create({ amount: { value: 8, unit: 'fl_oz' }, consumedAt: timestamp }, options); }
+      catch (error) {
+        if (createOutcomeUnknown(error)) recordUnconfirmed('cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
+        throw error;
+      }
+      // Delete only an ID whose reply echoes what was sent; any other success leaves
+      // the create unconfirmed, and an unverified ID is never deleted.
+      if (!(typeof result?.id === 'string' && result.id && result.amount?.value === 8 && result.amount.unit === 'fl_oz' && Date.parse(result.consumedAt) === Date.parse(timestamp))) {
+        recordUnconfirmed('cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
+        throw new CheckError('created_water_log_invalid');
+      }
+      createdWaterLogId = result.id;
+      return result;
+    });
+    await step('waterLogs.list', async options => {
+      const result = await user.waterLogs.list({ startDate: day, endDate: day, timezone: 'UTC', unit: 'fl_oz' }, options);
+      requireCheck(Array.isArray(result.items));
+      if (createdWaterLogId) requireCheck(result.items.some(item => item.date === day && item.total?.unit === 'fl_oz' && item.total.value >= 8), 'created_water_log_not_listed');
+      return result;
+    });
+    await step('waterLogs.delete', async options => {
+      const result = await user.waterLogs.delete({ logId: createdWaterLogId }, options);
+      requireCheck(result.$metadata.status === 204, 'delete_not_confirmed'); createdWaterLogId = undefined; return result;
+    }, { dependencies: ['waterLogs.create'] });
+    // Weight logs have no delete endpoint. The runner creates one only for its own
+    // synthetic end user, where it stays; the report lists it under retained.
+    await step('weightLogs.create', async options => {
+      requireCheck(endUserId.startsWith(runUserPrefix), 'not_a_run_owned_user');
+      let result;
+      try { result = await user.weightLogs.create({ weight: { value: 75, unit: 'kg' }, measuredAt: timestamp }, options); }
+      catch (error) {
+        if (createOutcomeUnknown(error)) recordUnconfirmed('cleanup.weightLogs.unconfirmed', 'weight_log_create_unconfirmed');
+        throw error;
+      }
+      // A success reply the runner cannot confirm leaves the weight's state unknown.
+      // The API returns the stored time in UTC with milliseconds; compare instants.
+      if (!(result?.weight?.value === 75 && result.weight.unit === 'kg' && Date.parse(result.measuredAt) === Date.parse(timestamp))) {
+        recordUnconfirmed('cleanup.weightLogs.unconfirmed', 'weight_log_create_unconfirmed');
+        throw new CheckError('created_weight_log_invalid');
+      }
+      const row = { operation: 'weightLogs.create', status: 'RETAINED', code: 'no_delete_endpoint_run_user_only', durationMs: 0 };
+      retained.push(row); output(row);
+      return result;
+    });
+    await step('weightLogs.list', async options => {
+      const result = await user.weightLogs.list({ startDate: day, endDate: day, timezone: 'UTC' }, options);
+      requireCheck(Array.isArray(result.items));
+      if (rows.get('weightLogs.create')?.status === 'PASS') requireCheck(result.items.some(item => item.date === day && item.weight?.unit === 'kg' && item.weight.value === 75), 'created_weight_log_not_listed');
+      return result;
+    });
     await step('glucose.predict', async options => {
       const result = await user.glucose.predict({
         userProfile: { age: 30, sex: 'male', height: { value: 175, unit: 'cm' }, weight: { value: 75, unit: 'kg' } },
@@ -276,6 +350,14 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
       }, index === 0 ? {} : { target: cleanup });
     }
     if (logIds.length) cleanup.push({ operation: 'cleanup.logs', status: ownLogs.size ? 'FAIL' : 'PASS', ...(ownLogs.size ? { code: 'log_cleanup_failed' } : {}), durationMs: 0 });
+    if (createdWaterLogId) {
+      // The in-flow delete did not run or failed; deleting is idempotent, so one more attempt is safe.
+      await step('cleanup.deleteWaterLog', async options => {
+        const result = await user.waterLogs.delete({ logId: createdWaterLogId }, options);
+        requireCheck(result.$metadata.status === 204, 'delete_not_confirmed'); createdWaterLogId = undefined; return result;
+      }, { target: cleanup });
+    }
+    for (const row of unconfirmed) { cleanup.push(row); output(row); }
     if (mintAttempted) {
       await step('revokeClientTokens', async options => {
         const result = await client.revokeClientTokens({ endUserId }, options);
@@ -287,7 +369,7 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
   }
   for (const operation of operationLabels) if (!rows.has(operation)) rows.set(operation, { operation, status: 'BLOCKED', code: 'workflow_incomplete', durationMs: 0 });
   const results = operationLabels.map(operation => rows.get(operation));
-  const report = { language: 'node', status: results.every(r => r.status === 'PASS') && extra.every(r => r.status === 'PASS') && cleanup.every(r => r.status === 'PASS') ? 'PASS' : 'FAIL', durationMs: Math.round(performance.now() - started), counts: counts(results), results, extra, extraCounts: counts(extra), cleanup, cleanupCounts: counts(cleanup) };
+  const report = { language: 'node', status: results.every(r => r.status === 'PASS') && extra.every(r => r.status === 'PASS') && cleanup.every(r => r.status === 'PASS') ? 'PASS' : 'FAIL', durationMs: Math.round(performance.now() - started), counts: counts(results), results, extra, extraCounts: counts(extra), cleanup, cleanupCounts: counts(cleanup), retained };
   await saveReport(config.root, report);
   return report;
 }
@@ -298,7 +380,7 @@ export async function main({ root = sdkRoot, env = process.env, emit = line => c
   catch (error) {
     const code = error instanceof CheckError ? error.code : 'configuration_error';
     emit(`configuration NOT_RUN code=${code}`);
-    const report = { language: 'node', status: 'NOT_RUN', code, counts: { total: operationLabels.length, passed: 0, failed: 0, blocked: operationLabels.length }, results: operationLabels.map(operation => ({ operation, status: 'BLOCKED', code, durationMs: 0 })), cleanup: [], extra: [] };
+    const report = { language: 'node', status: 'NOT_RUN', code, counts: { total: operationLabels.length, passed: 0, failed: 0, blocked: operationLabels.length }, results: operationLabels.map(operation => ({ operation, status: 'BLOCKED', code, durationMs: 0 })), cleanup: [], extra: [], retained: [] };
     await saveReport(root, report);
     return { exitCode: 2, report };
   }

@@ -7,6 +7,10 @@ export const ClientScope = {
   foodLogsWrite: "food_logs:write",
   glucoseRead: "glucose:read",
   restaurantsRead: "restaurants:read",
+  waterLogsRead: "water_logs:read",
+  waterLogsWrite: "water_logs:write",
+  weightLogsRead: "weight_logs:read",
+  weightLogsWrite: "weight_logs:write",
 } as const;
 export type ClientScope = typeof ClientScope[keyof typeof ClientScope];
 

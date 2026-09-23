@@ -1,4 +1,4 @@
-import { January, ClientScope, type ClientToken } from "@januaryai/server";
+import { January, ClientScope, type ClientToken, type CorrectionAnalysis, type FoodScan } from "@januaryai/server";
 
 const client = new January({ secretKey: "fixture" });
 const result: Promise<ClientToken> = client.clientTokens.create({
@@ -15,5 +15,10 @@ client.clientTokens.create({});
 client.clientTokens.create({ endUserId: "user", ttlSeconds: "300" });
 // @ts-expect-error Exact optional properties distinguish undefined from omission.
 client.clientTokens.create({ endUserId: "user", ttlSeconds: undefined });
+// A scan result is sent back for correction as-is; the correction input must accept it.
+const scan = {} as FoodScan;
+const correction: CorrectionAnalysis = scan;
+void correction;
+client.clientTokens.create({ endUserId: "user", scopes: [ClientScope.waterLogsWrite, ClientScope.weightLogsRead] });
 // @ts-expect-error Browser client resources are not part of this prototype.
 client.foods.search({ query: "banana" });

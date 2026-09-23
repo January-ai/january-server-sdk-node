@@ -6,6 +6,10 @@ export interface Schema {
   description?: string;
   ref?: string; publicName?: string; type?: string; format?: string; nullable?: boolean;
   enum?: unknown[]; required?: string[]; minimum?: number; maximum?: number;
+  /** OpenAPI 3.0 exclusive bounds: true makes minimum/maximum exclusive. */
+  exclusiveMinimum?: boolean; exclusiveMaximum?: boolean;
+  /** The object's value is held to the range of the unit it names; a property holding a shared object may narrow it. */
+  rangeByUnit?: { valueProperty: string; unitProperty: string; ranges: Record<string, { minimum: number; maximum: number }> };
   minLength?: number; maxLength?: number; minItems?: number; maxItems?: number; pattern?: string;
   properties?: Record<string, Schema>; items?: Schema;
   allOf?: Schema[]; oneOf?: Schema[]; anyOf?: Schema[];
@@ -53,14 +57,17 @@ function resolveSchema(schema: Schema): Schema {
   return { ...resolveSchema(resolved), ...(schema.nullable ? { nullable: true } : {}) };
 }
 function invalid(field: string): never { throw new JanuaryValidationError(`Invalid or missing ${field}`); }
+// Patch bodies the API rejects when empty (contract minProperties). Only the
+// fields the caller set are serialized, so an empty object means nothing to change.
+const MINIMUM_BODY_PROPERTIES: Readonly<Record<string, number>> = Object.freeze({ updateFoodLog: 1 });
 
 /** Schema-driven serialization; never guesses wire names from caller objects. */
 export function encode(value: unknown, raw: Schema, field = 'request'): unknown {
   const schema = resolveSchema(raw);
   if (value === null) { if (!schema.nullable) invalid(field); return null; }
   if (value === undefined) return undefined;
-  if (schema.allOf?.length === 1 && !schema.properties) return encode(value, schema.allOf[0]!, field);
-  if (schema.allOf) return schema.allOf.reduce((out, s) => Object.assign(out, encode(value, s, field)), {});
+  if (schema.allOf?.length === 1 && !schema.properties) return checkRangeByUnit(encode(value, schema.allOf[0]!, field), schema.rangeByUnit, field);
+  if (schema.allOf) return checkRangeByUnit(schema.allOf.reduce((out, s) => Object.assign(out, encode(value, s, field)), {}), schema.rangeByUnit, field);
   if (schema.oneOf || schema.anyOf) {
     for (const variant of schema.oneOf ?? schema.anyOf ?? []) {
       try { return encode(value, variant, field); } catch (e) { if (!(e instanceof JanuaryValidationError)) throw e; }
@@ -83,7 +90,7 @@ export function encode(value: unknown, raw: Schema, field = 'request'): unknown 
     if (schema.additionalProperties) for (const [key, v] of Object.entries(value)) {
       if (!known.has(key) && v !== undefined) out[key] = typeof schema.additionalProperties === 'object' ? encode(v, schema.additionalProperties, field) : v;
     }
-    return out;
+    return checkRangeByUnit(out, schema.rangeByUnit, field);
   }
   if (value instanceof Date && schema.format === 'date-time') {
     if (!Number.isFinite(value.getTime())) invalid(field);
@@ -97,11 +104,26 @@ export function encode(value: unknown, raw: Schema, field = 'request'): unknown 
     if (schema.format === 'date-time' && (!/(?:Z|[+-]\d{2}:\d{2})$/i.test(value) || !Number.isFinite(Date.parse(value)))) invalid(field);
   }
   if (schema.type === 'number' || schema.type === 'integer') {
-    if (typeof value !== 'number' || !Number.isFinite(value) || (schema.type === 'integer' && !Number.isSafeInteger(value)) || (schema.minimum !== undefined && value < schema.minimum) || (schema.maximum !== undefined && value > schema.maximum)) invalid(field);
+    const belowMinimum = schema.minimum !== undefined && ((value as number) < schema.minimum || (schema.exclusiveMinimum === true && value === schema.minimum));
+    const aboveMaximum = schema.maximum !== undefined && ((value as number) > schema.maximum || (schema.exclusiveMaximum === true && value === schema.maximum));
+    if (typeof value !== 'number' || !Number.isFinite(value) || (schema.type === 'integer' && !Number.isSafeInteger(value)) || belowMinimum || aboveMaximum) invalid(field);
   }
   if (schema.type === 'boolean' && typeof value !== 'boolean') invalid(field);
   if (schema.enum && !schema.enum.includes(value)) invalid(field);
   return value;
+}
+
+/** Holds an encoded object's value to the range of its unit; an unknown unit is left to the unit's own rule. */
+function checkRangeByUnit(encoded: unknown, rule: Schema['rangeByUnit'], field: string): unknown {
+  if (!rule || !isObject(encoded)) return encoded;
+  const value = encoded[rule.valueProperty];
+  const unit = encoded[rule.unitProperty];
+  if (typeof value !== 'number' || typeof unit !== 'string' || !Object.hasOwn(rule.ranges, unit)) return encoded;
+  const range = rule.ranges[unit]!;
+  if (value < range.minimum || value > range.maximum) {
+    throw new JanuaryValidationError(`${field}.${camel(rule.valueProperty)} must be from ${range.minimum} through ${range.maximum} ${unit}`);
+  }
+  return encoded;
 }
 
 /** Forward-tolerant decoding: additive fields and future enum strings survive. */
@@ -219,7 +241,12 @@ export class HttpRuntime {
       } else throw new JanuaryConfigurationError('Unsupported generated parameter location');
     }
     let body: string | undefined;
-    if (operation.body) { body = JSON.stringify(encode(request, operation.body)); headers['content-type'] = 'application/json'; }
+    if (operation.body) {
+      const encoded = encode(request, operation.body) as Record<string, unknown>;
+      const minimum = MINIMUM_BODY_PROPERTIES[operation.operationId];
+      if (minimum !== undefined && Object.keys(encoded).length < minimum) throw new JanuaryValidationError(`${operation.publicMethod} requires at least one field to change`);
+      body = JSON.stringify(encoded); headers['content-type'] = 'application/json';
+    }
     const url = this.#base + path + (query.size ? `?${query}` : '');
     const controller = new AbortController();
     const supplied = [options.signal, request.signal as AbortSignal | undefined].filter((s): s is AbortSignal => !!s);

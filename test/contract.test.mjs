@@ -7,17 +7,39 @@ import { inspect } from 'node:util';
 import { spawnSync } from 'node:child_process';
 import { January, JanuaryApiError, JanuaryTransportError, JanuaryValidationError, JanuaryConfigurationError } from '../dist/index.js';
 import { encode, decode } from '../dist/runtime.js';
+import { operations } from '../dist/generated/operations.js';
+import { schemas } from '../dist/generated/schemas.js';
 
 const fixtures = JSON.parse(await readFile(new URL('./fixtures/contract.json', import.meta.url)));
-const camel = s => s.replace(/[-_]+([a-z0-9])/g, (_, c) => c.toUpperCase()).replace(/^./, c => c.toLowerCase());
-const toPublic = value => Array.isArray(value) ? value.map(toPublic) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([k, v]) => [camel(k), toPublic(v)])) : value;
+// Public names come from the contract's publicName, never from the wire name: a
+// renamed property keeps its earlier public name (created_at is eatenAt on a food
+// log, consumedAt on a water log and measuredAt on a weight log).
+const target = schema => {
+  while (schema?.ref || (schema?.allOf?.length === 1 && !schema.properties)) schema = schema.ref ? schemas[schema.ref] : schema.allOf[0];
+  return schema;
+};
+function toPublic(value, raw) {
+  const schema = target(raw);
+  if (Array.isArray(value)) return value.map(item => toPublic(item, schema?.items));
+  if (!value || typeof value !== 'object' || !schema?.properties) return value;
+  return Object.fromEntries(Object.entries(value).map(([wire, item]) => {
+    const property = schema.properties[wire];
+    assert.ok(property?.publicName, `${wire} has no public name`);
+    return [property.publicName, toPublic(item, property)];
+  }));
+}
 function inputFor(fixture) {
+  const operation = operations[fixture.operationId];
   const result = {};
-  for (const fields of Object.values(fixture.request.parameters ?? {})) for (const [name, value] of Object.entries(fields)) result[fixture.parameterNames?.[name] ?? camel(name)] = value;
-  Object.assign(result, toPublic(fixture.request.body ?? {}));
-  for (const [wire, name] of Object.entries(fixture.bodyPropertyNames ?? {})) { result[name] = result[camel(wire)]; delete result[camel(wire)]; }
+  for (const fields of Object.values(fixture.request.parameters ?? {})) for (const [name, value] of Object.entries(fields)) {
+    const parameter = operation.parameters.find(item => item.name === name);
+    assert.ok(parameter?.publicName, `${fixture.operationId} has no public name for ${name}`);
+    result[parameter.publicName] = value;
+  }
+  Object.assign(result, toPublic(fixture.request.body ?? {}, operation.body));
   return result;
 }
+const responseFor = fixture => toPublic(fixture.response.body, operations[fixture.operationId].responses[fixture.response.status]?.schema);
 async function mock(t, handler) {
   const server = http.createServer(handler);
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -58,7 +80,8 @@ test('redirects are rejected without forwarding credentials or following Locatio
   assert.equal(calls, 1);
 });
 
-test('all 20 official fixtures serialize through a real local HTTP service', async t => {
+test('all 26 official fixtures serialize through a real local HTTP service', async t => {
+  assert.equal(fixtures.operations.length, 26);
   for (const f of fixtures.operations) await t.test(f.operationId, async t => {
     let seen;
     let calls = 0;
@@ -89,17 +112,17 @@ test('all 20 official fixtures serialize through a real local HTTP service', asy
     if (f.operationId === 'revokeClientTokens') {
       assert.equal(result.revokedCount, f.response.body.revoked_count);
     } else if (f.operationId === 'predictGlucose') assert.equal(result.impact, f.response.body.impact_score);
-    else if (f.operationId === 'deleteFoodLog') assert.deepEqual(result, {});
+    else if (['deleteFoodLog', 'deleteWaterLog'].includes(f.operationId)) assert.deepEqual(result, {});
     else if (['searchFoods', 'autocompleteFoods'].includes(f.operationId)) {
       assert.equal(result.items[0].id, f.response.body.items[0].id);
-      assert.deepEqual(result.items[0].nutrients, toPublic(f.response.body.items[0].nutrients));
+      assert.deepEqual(result.items[0].nutrients, responseFor(f).items[0].nutrients);
       assert.equal(result.items[0].photoUrl, f.response.body.items[0].image_url);
     } else if (['lookupFoodByBarcode', 'getFood'].includes(f.operationId)) {
       assert.equal(result.id, f.response.body.id);
-      assert.deepEqual(result.nutrients, toPublic(f.response.body.nutrients));
+      assert.deepEqual(result.nutrients, responseFor(f).nutrients);
       assert.equal(result.photoUrl, f.response.body.image_url);
     } else {
-      const expected = toPublic(f.response.body);
+      const expected = responseFor(f);
       assert.deepEqual(result, expected);
     }
   });

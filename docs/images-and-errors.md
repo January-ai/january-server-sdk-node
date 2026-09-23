@@ -67,14 +67,17 @@ seconds or HTTP dates and is limited to 60 seconds per wait and total requested
 waiting. Excessive waits return immediately with `retryNote`; cancellation
 interrupts waiting. The deadline includes all attempts and body reading.
 
-Revocation is never retried. Token and food-log creation are not replayed after
-ambiguous failures. Analysis/read retries may consume extra credits. Default
+Revocation is never retried. Token, food-log, water-log, and weight-log creation
+are never replayed after an ambiguous failure (a timeout, lost response, or 5xx
+reply), because the API may already have recorded the write; a 429 `rate_limited`
+reply is a definitive rejection that recorded nothing, so it is retried within the
+same limits. Deleting a water log is idempotent and retry-safe. Analysis/read retries may consume extra credits. Default
 timeout is 30 seconds, or 120 for photo/description analysis and correction.
 Quickstart and production E2E runners explicitly disable retries.
 
 ## Checks
 
-`npm test` exercises all 21 operations, photos, errors/retries, portion utilities,
+`npm test` exercises all 26 operations, photos, errors/retries, portion utilities,
 and examples. `npm run test:distribution` installs the packed ESM/CommonJS SDK and
 runs real loopback HTTP consumers. `npm run demo` starts the offline example flow.
 These checks are not production API tests. `npm run test:e2e` is the separate,

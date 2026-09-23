@@ -21,7 +21,7 @@ try {
   assert.deepEqual(requests[0], { method: "POST", path: "/v1.2/auth/client-tokens", body: { end_user_id: "user", scopes: ["foods:read"], ttl_seconds: 600 } });
   await client.clientTokens.create({ endUserId: "user", scopes: ["foods:read"] });
   assert.deepEqual(requests[1].body, { end_user_id: "user", scopes: ["foods:read"] });
-  for (const input of [{ scopes: [] }, { scopes: null }, { scopes: ["unknown"] }, { scopes: Array(7).fill("foods:read") }, { ttlSeconds: 0 }, { ttlSeconds: 300.5 }, { endUserId: "😀".repeat(33) }]) {
+  for (const input of [{ scopes: [] }, { scopes: null }, { scopes: ["unknown"] }, { scopes: Array(11).fill("foods:read") }, { ttlSeconds: 0 }, { ttlSeconds: 300.5 }, { endUserId: "😀".repeat(33) }]) {
     await assert.rejects(client.clientTokens.create({ endUserId: "user", ...input }), JanuaryValidationError);
   }
   assert.equal(requests.length, 2);

@@ -83,6 +83,32 @@ export class FoodLogsResource<Scoped extends boolean = false> {
     return this.runtime.request(operations["deleteFoodLog"]!, { ...request, ...this.context }, options);
   }
 }
+export class WaterLogsResource<Scoped extends boolean = false> {
+  constructor(private readonly runtime: HttpRuntime, private readonly context: Readonly<Partial<Models.PartnerUserContext>> = {}) { Object.freeze(this); }
+  /** Contract operation: createWaterLog. */
+  create(request: UserRequest<Models.CreateWaterLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.WaterLog>> {
+    return this.runtime.request(operations["createWaterLog"]!, { ...request, ...this.context }, options);
+  }
+  /** Contract operation: listWaterLogs. */
+  list(request: UserRequest<Models.ListWaterLogsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.ListWaterLogsResponse>> {
+    return this.runtime.request(operations["listWaterLogs"]!, { ...request, ...this.context }, options);
+  }
+  /** Contract operation: deleteWaterLog. */
+  delete(request: UserRequest<Models.DeleteWaterLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<{}>> {
+    return this.runtime.request(operations["deleteWaterLog"]!, { ...request, ...this.context }, options);
+  }
+}
+export class WeightLogsResource<Scoped extends boolean = false> {
+  constructor(private readonly runtime: HttpRuntime, private readonly context: Readonly<Partial<Models.PartnerUserContext>> = {}) { Object.freeze(this); }
+  /** Contract operation: createWeightLog. */
+  create(request: UserRequest<Models.CreateWeightLogRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.WeightLog>> {
+    return this.runtime.request(operations["createWeightLog"]!, { ...request, ...this.context }, options);
+  }
+  /** Contract operation: listWeightLogs. */
+  list(request: UserRequest<Models.ListWeightLogsRequest, Scoped>, options: RequestOptions = {}): Promise<WithMetadata<Models.ListWeightLogsResponse>> {
+    return this.runtime.request(operations["listWeightLogs"]!, { ...request, ...this.context }, options);
+  }
+}
 export class GlucoseResource<Scoped extends boolean = false> {
   constructor(private readonly runtime: HttpRuntime, private readonly context: Readonly<Partial<Models.PartnerUserContext>> = {}) { Object.freeze(this); }
   /** Contract operation: predictGlucose. */
@@ -95,12 +121,16 @@ export class SharedClient<Scoped extends boolean = false> {
   readonly restaurants: RestaurantsResource<Scoped>;
   readonly foodAnalysis: FoodAnalysisResource<Scoped>;
   readonly foodLogs: FoodLogsResource<Scoped>;
+  readonly waterLogs: WaterLogsResource<Scoped>;
+  readonly weightLogs: WeightLogsResource<Scoped>;
   readonly glucose: GlucoseResource<Scoped>;
   constructor(protected readonly runtime: HttpRuntime, readonly context: Readonly<Partial<Models.PartnerUserContext>> = {}) {
     this.foods = new FoodsResource(runtime, context);
     this.restaurants = new RestaurantsResource(runtime, context);
     this.foodAnalysis = new FoodAnalysisResource(runtime, context);
     this.foodLogs = new FoodLogsResource(runtime, context);
+    this.waterLogs = new WaterLogsResource(runtime, context);
+    this.weightLogs = new WeightLogsResource(runtime, context);
     this.glucose = new GlucoseResource(runtime, context);
   }
 }

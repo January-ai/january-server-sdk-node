@@ -21,9 +21,9 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "id": {
-        "description": "Catalog food id, or null when the producer matched none.",
+        "description": "Catalog food id.",
         "type": "string",
-        "nullable": true,
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "id"
       },
       "name": {
@@ -112,6 +112,8 @@ export const schemas: Record<string, Schema> = {
       "value": {
         "description": "mg/dL. At most one reading per 15-minute window.",
         "type": "number",
+        "minimum": 10,
+        "maximum": 600,
         "publicName": "value"
       }
     }
@@ -158,7 +160,11 @@ export const schemas: Record<string, Schema> = {
             "food_logs:read",
             "food_logs:write",
             "glucose:read",
-            "restaurants:read"
+            "restaurants:read",
+            "water_logs:read",
+            "water_logs:write",
+            "weight_logs:read",
+            "weight_logs:write"
           ]
         },
         "publicName": "scopes"
@@ -206,11 +212,13 @@ export const schemas: Record<string, Schema> = {
       "food_id": {
         "description": "Food id from a search or food-analysis result.",
         "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "foodId"
       },
       "serving_id": {
         "description": "One of the food's serving ids.",
         "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "servingId"
       },
       "quantity": {
@@ -218,7 +226,151 @@ export const schemas: Record<string, Schema> = {
         "type": "number",
         "minimum": 0,
         "maximum": 10000,
+        "exclusiveMinimum": true,
         "publicName": "quantity"
+      }
+    }
+  },
+  "CorrectionAnalysis": {
+    "type": "object",
+    "required": [
+      "detections"
+    ],
+    "properties": {
+      "meal_name": {
+        "description": "A name for the meal as a whole. Null on text analyses — the caller already has the words. Corrections preserve a null meal name.",
+        "type": "string",
+        "nullable": true,
+        "maxLength": 256,
+        "pattern": "\\S",
+        "publicName": "mealName"
+      },
+      "total_nutrients": {
+        "description": "Optional original totals. Ignored on input; corrections recalculate totals from the corrected foods.",
+        "allOf": [
+          {
+            "ref": "NutritionFacts"
+          }
+        ],
+        "publicName": "totalNutrients"
+      },
+      "detections": {
+        "type": "array",
+        "maxItems": 100,
+        "items": {
+          "ref": "CorrectionDetection"
+        },
+        "publicName": "detections"
+      }
+    }
+  },
+  "CorrectionDetection": {
+    "type": "object",
+    "required": [
+      "confidence",
+      "food"
+    ],
+    "properties": {
+      "confidence": {
+        "ref": "ConfidenceScore",
+        "publicName": "confidence"
+      },
+      "food": {
+        "ref": "CorrectionFood",
+        "publicName": "food"
+      }
+    }
+  },
+  "CorrectionFood": {
+    "type": "object",
+    "required": [
+      "name",
+      "brand_name",
+      "id",
+      "quantity",
+      "nutrients",
+      "serving"
+    ],
+    "properties": {
+      "name": {
+        "description": "Null only when the producer sent a food with no name.",
+        "type": "string",
+        "nullable": true,
+        "minLength": 1,
+        "maxLength": 256,
+        "publicName": "name"
+      },
+      "brand_name": {
+        "description": "Null for generic (non-branded) foods.",
+        "type": "string",
+        "nullable": true,
+        "publicName": "brandName"
+      },
+      "id": {
+        "description": "Matched catalog food id. Pass it back as food_id when logging this food.",
+        "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
+        "publicName": "id"
+      },
+      "quantity": {
+        "description": "Positive number of selected catalog servings consumed. Use it unchanged as food-log quantity. Display the consumed amount as food.quantity × food.serving.quantity, followed by food.serving.unit: 4 × 0.5 cup = 2 cups; 0.4 × 100 g = 40 g. Nutrients already describe this consumed portion; do not multiply them again.",
+        "type": "number",
+        "minimum": 0,
+        "maximum": 10000,
+        "exclusiveMinimum": true,
+        "publicName": "quantity"
+      },
+      "nutrients": {
+        "description": "Nutrition for the consumed portion, already scaled by quantity. Send the analysis back unchanged for corrections.",
+        "allOf": [
+          {
+            "ref": "NutritionFacts"
+          }
+        ],
+        "publicName": "nutrients"
+      },
+      "serving": {
+        "ref": "CorrectionServing",
+        "publicName": "serving"
+      }
+    }
+  },
+  "CorrectionServing": {
+    "type": "object",
+    "required": [
+      "id",
+      "quantity",
+      "unit"
+    ],
+    "properties": {
+      "id": {
+        "description": "Catalog serving id. Pass it back as serving_id when logging this food.",
+        "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
+        "publicName": "id"
+      },
+      "quantity": {
+        "description": "Positive amount of unit represented by this serving definition. In food analysis and food logs this is one catalog serving: consumed amount = food.quantity × food.serving.quantity (4 × 0.5 cup = 2 cups). Food alternatives instead report their recommended portion amount here.",
+        "type": "number",
+        "minimum": 0,
+        "maximum": 10000,
+        "exclusiveMinimum": true,
+        "publicName": "quantity"
+      },
+      "unit": {
+        "description": "Null only when the producer sent a serving with no unit.",
+        "type": "string",
+        "nullable": true,
+        "minLength": 1,
+        "maxLength": 64,
+        "publicName": "unit"
+      },
+      "weight_grams": {
+        "description": "Weight in grams of this serving definition. For food analysis and food logs this is one catalog serving, not the consumed portion: consumed grams = food.quantity × food.serving.weight_grams. Null when unknown.",
+        "type": "number",
+        "nullable": true,
+        "minimum": 0,
+        "publicName": "weightGrams"
       }
     }
   },
@@ -230,10 +382,10 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "analysis": {
-        "description": "The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically, and `total_nutrients` is recalculated rather than trusted — send it or leave it out, it makes no difference.",
+        "description": "The result from `POST /v1.2/food-analysis/image` or `/text`, sent back exactly as it was returned. Omitted zero-value nutrient keys are filled in automatically. `meal_name` may be omitted (treated as null); `total_nutrients` may be omitted because it is recalculated rather than trusted. Older results may omit serving `weight_grams`; it is treated as unknown. The forwarded nutrients (calories, protein, carbohydrates, net_carbohydrates, total_fat, saturated_fat, fiber, total_sugars, added_sugars, sodium) must each have a `value` from 0 to 1000000 and a `unit` of at most 16 characters; every analysis result already satisfies this. A detection the analysis returned incomplete — with a null `name` or serving `unit` — is left out of the corrected result, because the correction model needs what it lacks; describe that food in `instruction` if it belongs in the meal.",
         "allOf": [
           {
-            "ref": "FoodScan"
+            "ref": "CorrectionAnalysis"
           }
         ],
         "publicName": "analysis"
@@ -260,8 +412,10 @@ export const schemas: Record<string, Schema> = {
         "publicName": "endUserId"
       },
       "scopes": {
-        "description": "What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `[\"foods:read\"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read.",
+        "description": "What the token may do. **Required** — name only the scopes this token needs (least privilege), never the full set out of convenience. A read-only food-lookup screen asks for `[\"foods:read\"]`; a logging screen adds `food_logs:write`. Valid scopes: foods:read, food_analysis:write, food_logs:read, food_logs:write, glucose:read, restaurants:read, water_logs:read, water_logs:write, weight_logs:read, weight_logs:write.",
         "type": "array",
+        "minItems": 1,
+        "maxItems": 10,
         "items": {
           "type": "string",
           "enum": [
@@ -270,7 +424,11 @@ export const schemas: Record<string, Schema> = {
             "food_logs:read",
             "food_logs:write",
             "glucose:read",
-            "restaurants:read"
+            "restaurants:read",
+            "water_logs:read",
+            "water_logs:write",
+            "weight_logs:read",
+            "weight_logs:write"
           ]
         },
         "publicName": "scopes"
@@ -292,13 +450,14 @@ export const schemas: Record<string, Schema> = {
     "properties": {
       "foods": {
         "type": "array",
+        "minItems": 1,
         "maxItems": 100,
         "items": {
           "ref": "FoodLogInputFood"
         },
         "publicName": "foods"
       },
-      "eaten_at": {
+      "created_at": {
         "description": "When the meal was eaten — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now.",
         "type": "string",
         "format": "date-time",
@@ -308,6 +467,66 @@ export const schemas: Record<string, Schema> = {
         "type": "string",
         "maxLength": 256,
         "publicName": "name"
+      }
+    }
+  },
+  "CreateWaterLogBody": {
+    "type": "object",
+    "required": [
+      "amount"
+    ],
+    "properties": {
+      "amount": {
+        "description": "How much water. An end user's total is capped at 24 L (about 811 fl oz) per day.",
+        "allOf": [
+          {
+            "ref": "WaterAmount"
+          }
+        ],
+        "publicName": "amount"
+      },
+      "created_at": {
+        "description": "When the water was consumed — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. Its day is the one the daily cap counts it against.",
+        "type": "string",
+        "format": "date-time",
+        "publicName": "consumedAt"
+      }
+    }
+  },
+  "CreateWeightLogBody": {
+    "type": "object",
+    "required": [
+      "weight"
+    ],
+    "properties": {
+      "weight": {
+        "description": "The measured weight. `value` must be 10–1000 for `lb`, or 4.5–453.6 for `kg`; it is stored and returned in the unit sent.",
+        "rangeByUnit": {
+          "valueProperty": "value",
+          "unitProperty": "unit",
+          "ranges": {
+            "lb": {
+              "minimum": 10,
+              "maximum": 1000
+            },
+            "kg": {
+              "minimum": 4.5,
+              "maximum": 453.6
+            }
+          }
+        },
+        "allOf": [
+          {
+            "ref": "Weight"
+          }
+        ],
+        "publicName": "weight"
+      },
+      "created_at": {
+        "description": "When the weight was measured — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now.",
+        "type": "string",
+        "format": "date-time",
+        "publicName": "measuredAt"
       }
     }
   },
@@ -324,8 +543,7 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "plan": {
-        "description": "The plan this allowance comes from.",
-        "type": "string",
+        "ref": "CreditPlan",
         "publicName": "plan"
       },
       "period_start": {
@@ -365,27 +583,82 @@ export const schemas: Record<string, Schema> = {
       }
     }
   },
+  "CreditPlan": {
+    "description": "The plan this allowance comes from. `unlimited` is a partner with no ceiling, for whom both ceiling fields are `null`.",
+    "type": "string",
+    "enum": [
+      "free",
+      "pro",
+      "startup",
+      "enterprise",
+      "unlimited"
+    ]
+  },
+  "DailyWaterTotal": {
+    "type": "object",
+    "required": [
+      "date",
+      "total"
+    ],
+    "properties": {
+      "date": {
+        "description": "Local calendar date in the request’s `timezone`.",
+        "type": "string",
+        "format": "date",
+        "publicName": "date"
+      },
+      "total": {
+        "description": "Everything logged on this local day, in the unit the request asked for.",
+        "allOf": [
+          {
+            "ref": "Volume"
+          }
+        ],
+        "publicName": "total"
+      }
+    }
+  },
+  "DailyWeight": {
+    "type": "object",
+    "required": [
+      "date",
+      "weight"
+    ],
+    "properties": {
+      "date": {
+        "description": "Local calendar date in the request’s `timezone`.",
+        "type": "string",
+        "format": "date",
+        "publicName": "date"
+      },
+      "weight": {
+        "description": "The weight with the latest `created_at` on this day — later measurements replace earlier ones — in the unit it was logged in.",
+        "allOf": [
+          {
+            "ref": "Weight"
+          }
+        ],
+        "publicName": "weight"
+      }
+    }
+  },
   "DetectedFood": {
     "type": "object",
     "required": [
-      "id",
       "name",
       "brand_name",
+      "id",
       "quantity",
       "serving",
       "nutrients"
     ],
     "properties": {
-      "id": {
-        "description": "Catalog food id, or null when the producer matched none.",
-        "type": "string",
-        "nullable": true,
-        "publicName": "id"
-      },
       "name": {
         "description": "Null only when the producer sent a food with no name.",
         "type": "string",
         "nullable": true,
+        "minLength": 1,
+        "maxLength": 256,
         "publicName": "name"
       },
       "brand_name": {
@@ -394,10 +667,18 @@ export const schemas: Record<string, Schema> = {
         "nullable": true,
         "publicName": "brandName"
       },
+      "id": {
+        "description": "Matched catalog food id. Pass it back as food_id when logging this food.",
+        "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
+        "publicName": "id"
+      },
       "quantity": {
-        "description": "Number of catalog servings consumed, ready to use as food-log quantity. For 40 g from a 100 g serving this is 0.4. Null when the producer supplied no usable portion.",
+        "description": "Positive number of selected catalog servings consumed. Use it unchanged as food-log quantity. Display the consumed amount as food.quantity × food.serving.quantity, followed by food.serving.unit: 4 × 0.5 cup = 2 cups; 0.4 × 100 g = 40 g. Nutrients already describe this consumed portion; do not multiply them again.",
         "type": "number",
-        "nullable": true,
+        "minimum": 0,
+        "maximum": 10000,
+        "exclusiveMinimum": true,
         "publicName": "quantity"
       },
       "serving": {
@@ -410,7 +691,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "serving"
       },
       "nutrients": {
-        "description": "Nutrition for the consumed portion, already scaled by quantity.",
+        "description": "Nutrition for the consumed portion, already scaled by quantity. Send the analysis back unchanged for corrections.",
         "allOf": [
           {
             "ref": "NutritionFacts"
@@ -469,7 +750,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "message"
       },
       "code": {
-        "description": "A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.\n\nAny request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `payload_too_large` (413), `rate_limited` (429), `request_limit_exceeded` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 409 or 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.\n\n`cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.\n\nClient tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.\n\nThree more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called a food-log operation with no January-End-User-ID header), `date_range_too_large` (400 — a food-log date range past the documented maximum), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).\n\n`POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.\n\nRetry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Three more the status code alone gets wrong. **Two 429s must never be retried**, because both reopen only at the start of the next calendar month: `credit_limit_exceeded` (the monthly credit allowance) and `request_limit_exceeded` (the monthly request allowance). A client that backs off on every 429 will spin until then; neither sends `Retry-After`, and the message names the reset instant — `GET /v1.2/credits` returns it as the resets_at field. `rate_limited` is the 429 that *is* worth retrying: a per-endpoint limit, or the rolling 24-hour burst guard over the monthly ceiling, so its window is at most a day. And `token_expired` is refreshed, not retried — mint a new token, then retry once.\n\nNew codes may be added over time; treat an unknown code according to its HTTP status class.",
+        "description": "A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.\n\nAny request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `payload_too_large` (413), `rate_limited` (429), `request_limit_exceeded` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.\n\n`conflict` (409) means the request conflicts with an existing resource, such as an Idempotency-Key reused with different files. Resolve the conflict before retrying.\n\n`cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.\n\nClient tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.\n\nFour more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called an operation that documents the January-End-User-ID header without sending it), `date_range_too_large` (400 — a date range past the operation's documented maximum or lookback), `daily_water_limit_exceeded` (400 — a water log that would take the end user's total for its day past 24 L; not retryable), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).\n\n`POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.\n\nRetry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Three more the status code alone gets wrong. **Two 429s must never be retried**, because both reopen only at the start of the next calendar month: `credit_limit_exceeded` (the monthly credit allowance) and `request_limit_exceeded` (the monthly request allowance). A client that backs off on every 429 will spin until then; neither sends `Retry-After`, and the message names the reset instant — `GET /v1.2/credits` returns it as the resets_at field. `rate_limited` is the 429 that *is* worth retrying: a per-endpoint limit, or the rolling 24-hour burst guard over the monthly ceiling, so its window is at most a day. And `token_expired` is refreshed, not retried — mint a new token, then retry once.\n\nNew codes may be added over time; treat an unknown code according to its HTTP status class.",
         "type": "string",
         "publicName": "code"
       }
@@ -504,14 +785,14 @@ export const schemas: Record<string, Schema> = {
     "description": "Opaque food identifier; pass it back verbatim.",
     "type": "string",
     "format": "opaque",
-    "pattern": "^[0-9]{1,16}$"
+    "pattern": "^[1-9]\\d{0,9}$"
   },
   "FoodLog": {
     "type": "object",
     "required": [
       "id",
       "foods",
-      "eaten_at",
+      "created_at",
       "name"
     ],
     "properties": {
@@ -528,7 +809,7 @@ export const schemas: Record<string, Schema> = {
         },
         "publicName": "foods"
       },
-      "eaten_at": {
+      "created_at": {
         "description": "When the meal was eaten. UTC, with milliseconds.",
         "type": "string",
         "format": "date-time",
@@ -568,6 +849,7 @@ export const schemas: Record<string, Schema> = {
         "type": "number",
         "minimum": 0,
         "maximum": 10000,
+        "exclusiveMinimum": true,
         "publicName": "quantity"
       }
     }
@@ -737,9 +1019,11 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "meal_name": {
-        "description": "A name for the meal as a whole. Null on text analyses — the caller already has the words.",
+        "description": "A name for the meal as a whole. Null on text analyses — the caller already has the words. Corrections preserve a null meal name.",
         "type": "string",
         "nullable": true,
+        "maxLength": 256,
+        "pattern": "\\S",
         "publicName": "mealName"
       },
       "total_nutrients": {
@@ -754,6 +1038,7 @@ export const schemas: Record<string, Schema> = {
       "detections": {
         "description": "Detected foods. Always present — an empty array means nothing was recognized.",
         "type": "array",
+        "maxItems": 100,
         "items": {
           "ref": "FoodDetection"
         },
@@ -779,6 +1064,7 @@ export const schemas: Record<string, Schema> = {
       "id": {
         "description": "Opaque id — pass it back verbatim to log, predict, or fetch this food.",
         "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "id"
       },
       "type": {
@@ -938,6 +1224,7 @@ export const schemas: Record<string, Schema> = {
       "id": {
         "description": "Opaque id — the same id `GET /v1.2/foods/{food_id}` takes.",
         "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "id"
       },
       "type": {
@@ -1080,7 +1367,9 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "age": {
-        "type": "number",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 120,
         "publicName": "age"
       },
       "sex": {
@@ -1102,6 +1391,7 @@ export const schemas: Record<string, Schema> = {
       "health_conditions": {
         "description": "Omit it (or send []) if none apply. Type 1 diabetes is not supported by the prediction model.",
         "type": "array",
+        "maxItems": 2,
         "items": {
           "ref": "MedicalCondition"
         },
@@ -1115,9 +1405,26 @@ export const schemas: Record<string, Schema> = {
       "value",
       "unit"
     ],
+    "rangeByUnit": {
+      "valueProperty": "value",
+      "unitProperty": "unit",
+      "ranges": {
+        "in": {
+          "minimum": 20,
+          "maximum": 108
+        },
+        "cm": {
+          "minimum": 50,
+          "maximum": 275
+        }
+      }
+    },
     "properties": {
       "value": {
+        "description": "Accepted range depends on unit: 20–108 in, 50–275 cm.",
         "type": "number",
+        "minimum": 20,
+        "maximum": 275,
         "publicName": "value"
       },
       "unit": {
@@ -1149,6 +1456,38 @@ export const schemas: Record<string, Schema> = {
       }
     }
   },
+  "ListWaterLogsResponse": {
+    "type": "object",
+    "required": [
+      "items"
+    ],
+    "properties": {
+      "items": {
+        "description": "One entry per local day with water logged, oldest first. Days with nothing logged are absent. An empty list is a valid result.",
+        "type": "array",
+        "items": {
+          "ref": "DailyWaterTotal"
+        },
+        "publicName": "items"
+      }
+    }
+  },
+  "ListWeightLogsResponse": {
+    "type": "object",
+    "required": [
+      "items"
+    ],
+    "properties": {
+      "items": {
+        "description": "One entry per day that has a weight, oldest first. Days with no weight are absent. An empty list is a valid result.",
+        "type": "array",
+        "items": {
+          "ref": "DailyWeight"
+        },
+        "publicName": "items"
+      }
+    }
+  },
   "LoggedFood": {
     "type": "object",
     "required": [
@@ -1164,9 +1503,9 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "food_id": {
-        "description": "Food id from a search or food-analysis result. Null only when the upstream sent a food with no id.",
+        "description": "Food id from a search or food-analysis result.",
         "type": "string",
-        "nullable": true,
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "foodId"
       },
       "name": {
@@ -1206,7 +1545,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "nutrients"
       },
       "quantity": {
-        "description": "How many of the serving below were consumed. Null only when the upstream sent no consumed quantity.",
+        "description": "Number of selected servings consumed. Consumed amount = food.quantity × food.serving.quantity, in food.serving.unit (4 × 0.5 cup = 2 cups). Nutrients are already scaled to this portion. Null when unavailable.",
         "type": "number",
         "nullable": true,
         "publicName": "quantity"
@@ -1215,7 +1554,7 @@ export const schemas: Record<string, Schema> = {
         "description": "The serving definition the quantity refers to.",
         "allOf": [
           {
-            "ref": "ServingDetails"
+            "ref": "ServingSummary"
           }
         ],
         "publicName": "serving"
@@ -1241,11 +1580,21 @@ export const schemas: Record<string, Schema> = {
         "publicName": "value"
       },
       "unit": {
-        "description": "Canonical across the API: g, mg, kcal, IU.",
-        "type": "string",
+        "ref": "NutrientUnit",
         "publicName": "unit"
       }
     }
+  },
+  "NutrientUnit": {
+    "description": "Canonical across the API: g, mg, kcal, IU, mcg. Read it from each amount rather than assuming a unit per nutrient.",
+    "type": "string",
+    "enum": [
+      "g",
+      "mg",
+      "kcal",
+      "IU",
+      "mcg"
+    ]
   },
   "NutritionFacts": {
     "type": "object",
@@ -1343,6 +1692,7 @@ export const schemas: Record<string, Schema> = {
       "foods": {
         "description": "The meal to predict the glucose response for.",
         "type": "array",
+        "minItems": 1,
         "maxItems": 100,
         "items": {
           "ref": "FoodLogInputFood"
@@ -1358,6 +1708,8 @@ export const schemas: Record<string, Schema> = {
       "cgm_data": {
         "description": "Optional CGM history, to personalize the prediction to this end user. Send it together with `consumed_foods` covering the same period — **at least 5 complete days of paired history**, which is what the model needs to train on them. Fewer is refused with `invalid_request`. Omit both fields for a standard prediction, which needs no sensor and no history.",
         "type": "array",
+        "minItems": 1,
+        "maxItems": 5000,
         "items": {
           "ref": "CgmReading"
         },
@@ -1366,6 +1718,8 @@ export const schemas: Record<string, Schema> = {
       "consumed_foods": {
         "description": "The meals eaten during the CGM history; requires cgm_data.",
         "type": "array",
+        "minItems": 1,
+        "maxItems": 5000,
         "items": {
           "ref": "ConsumedHistoricalFood"
         },
@@ -1446,9 +1800,9 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "id": {
-        "description": "Food id of the dish — the same id `GET /v1.2/foods/{food_id}` and `POST /v1.2/food-logs` take. Null only when the menu source carries no id for the row.",
+        "description": "Food id of the dish — the same id `GET /v1.2/foods/{food_id}` and `POST /v1.2/food-logs` take.",
         "type": "string",
-        "nullable": true,
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "id"
       },
       "name": {
@@ -1492,7 +1846,7 @@ export const schemas: Record<string, Schema> = {
     "description": "Opaque restaurant menu-item identifier.",
     "type": "string",
     "format": "opaque",
-    "minLength": 1
+    "pattern": "^[1-9]\\d{0,9}$"
   },
   "RestaurantMenuSearchItem": {
     "type": "object",
@@ -1608,7 +1962,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "image"
       },
       "reasoning": {
-        "description": "Controls analysis effort. Omit it or set `effort` to `none` to use the standard analyzer; `xhigh` uses the reasoning-based analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost.",
+        "description": "Controls analysis effort. Omit it or set `effort` to `xhigh` to use the reasoning-based analyzer; `none` uses the standard analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost.",
         "allOf": [
           {
             "ref": "AnalysisReasoning"
@@ -1664,46 +2018,11 @@ export const schemas: Record<string, Schema> = {
       }
     }
   },
-  "ServingDetails": {
-    "type": "object",
-    "required": [
-      "id",
-      "quantity",
-      "unit",
-      "weight_grams"
-    ],
-    "properties": {
-      "id": {
-        "description": "Null only when the upstream sent a serving with no id.",
-        "type": "string",
-        "nullable": true,
-        "publicName": "id"
-      },
-      "quantity": {
-        "description": "How many units make up one of this serving, e.g. 1 for \"1 cup\". Null when the upstream reported none.",
-        "type": "number",
-        "nullable": true,
-        "publicName": "quantity"
-      },
-      "unit": {
-        "description": "Null only when the upstream sent a serving with no unit.",
-        "type": "string",
-        "nullable": true,
-        "publicName": "unit"
-      },
-      "weight_grams": {
-        "description": "Null when the upstream has no gram weight for this serving.",
-        "type": "number",
-        "nullable": true,
-        "publicName": "weightGrams"
-      }
-    }
-  },
   "ServingId": {
     "description": "Opaque serving identifier; pass it back verbatim.",
     "type": "string",
     "format": "opaque",
-    "pattern": "^[0-9]{1,16}$"
+    "pattern": "^[1-9]\\d{0,9}$"
   },
   "ServingOption": {
     "type": "object",
@@ -1719,7 +2038,7 @@ export const schemas: Record<string, Schema> = {
       "id": {
         "description": "Opaque serving id; may look numeric but is always a string.",
         "type": "string",
-        "nullable": true,
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "id"
       },
       "quantity": {
@@ -1756,26 +2075,38 @@ export const schemas: Record<string, Schema> = {
     "required": [
       "id",
       "quantity",
-      "unit"
+      "unit",
+      "weight_grams"
     ],
     "properties": {
       "id": {
-        "description": "Null only when the producer sent a serving with no id.",
+        "description": "Catalog serving id. Pass it back as serving_id when logging this food.",
         "type": "string",
-        "nullable": true,
+        "pattern": "^[1-9]\\d{0,9}$",
         "publicName": "id"
       },
       "quantity": {
-        "description": "How much of `unit` this serving is; null when the producer reported none.",
+        "description": "Positive amount of unit represented by this serving definition. In food analysis and food logs this is one catalog serving: consumed amount = food.quantity × food.serving.quantity (4 × 0.5 cup = 2 cups). Food alternatives instead report their recommended portion amount here.",
         "type": "number",
-        "nullable": true,
+        "minimum": 0,
+        "maximum": 10000,
+        "exclusiveMinimum": true,
         "publicName": "quantity"
       },
       "unit": {
         "description": "Null only when the producer sent a serving with no unit.",
         "type": "string",
         "nullable": true,
+        "minLength": 1,
+        "maxLength": 64,
         "publicName": "unit"
+      },
+      "weight_grams": {
+        "description": "Weight in grams of this serving definition. For food analysis and food logs this is one catalog serving, not the consumed portion: consumed grams = food.quantity × food.serving.weight_grams. Null when unknown.",
+        "type": "number",
+        "nullable": true,
+        "minimum": 0,
+        "publicName": "weightGrams"
       }
     }
   },
@@ -1793,6 +2124,7 @@ export const schemas: Record<string, Schema> = {
       "diet_restrictions": {
         "description": "Allergens/ingredients to avoid. Omit it (or send []) if none apply.",
         "type": "array",
+        "maxItems": 17,
         "items": {
           "ref": "DietRestriction"
         },
@@ -1801,6 +2133,7 @@ export const schemas: Record<string, Schema> = {
       "diet_preferences": {
         "description": "Dietary patterns to match. Omit it (or send []) if none apply.",
         "type": "array",
+        "maxItems": 9,
         "items": {
           "ref": "DietPreference"
         },
@@ -1829,13 +2162,14 @@ export const schemas: Record<string, Schema> = {
     "properties": {
       "foods": {
         "type": "array",
+        "minItems": 1,
         "maxItems": 100,
         "items": {
           "ref": "FoodLogInputFood"
         },
         "publicName": "foods"
       },
-      "eaten_at": {
+      "created_at": {
         "description": "When the meal was eaten — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omit to leave it unchanged.",
         "type": "string",
         "format": "date-time",
@@ -1846,9 +2180,10 @@ export const schemas: Record<string, Schema> = {
         "maxLength": 256,
         "publicName": "name"
       }
-    }
+    },
+    "additionalProperties": false
   },
-  "Weight": {
+  "Volume": {
     "type": "object",
     "required": [
       "value",
@@ -1856,12 +2191,153 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "value": {
+        "description": "Rounded to one decimal place.",
         "type": "number",
+        "minimum": 0,
+        "publicName": "value"
+      },
+      "unit": {
+        "ref": "VolumeUnit",
+        "publicName": "unit"
+      }
+    }
+  },
+  "VolumeUnit": {
+    "type": "string",
+    "enum": [
+      "fl_oz",
+      "ml",
+      "cup"
+    ]
+  },
+  "WaterAmount": {
+    "type": "object",
+    "required": [
+      "value",
+      "unit"
+    ],
+    "rangeByUnit": {
+      "valueProperty": "value",
+      "unitProperty": "unit",
+      "ranges": {
+        "fl_oz": {
+          "minimum": 1,
+          "maximum": 811.5
+        },
+        "ml": {
+          "minimum": 30,
+          "maximum": 24000
+        },
+        "cup": {
+          "minimum": 0.1,
+          "maximum": 101.4
+        }
+      }
+    },
+    "properties": {
+      "value": {
+        "description": "Accepted range depends on unit: 1–811.5 fl_oz, 30–24000 ml, 0.1–101.4 cup.",
+        "type": "number",
+        "minimum": 0.1,
+        "maximum": 24000,
+        "publicName": "value"
+      },
+      "unit": {
+        "ref": "VolumeUnit",
+        "publicName": "unit"
+      }
+    }
+  },
+  "WaterLog": {
+    "type": "object",
+    "required": [
+      "id",
+      "amount",
+      "created_at"
+    ],
+    "properties": {
+      "id": {
+        "description": "Save this id to delete the log.",
+        "type": "string",
+        "publicName": "id"
+      },
+      "amount": {
+        "description": "The amount as logged, in the unit it was sent in.",
+        "allOf": [
+          {
+            "ref": "WaterAmount"
+          }
+        ],
+        "publicName": "amount"
+      },
+      "created_at": {
+        "description": "When the water was consumed. UTC, with milliseconds.",
+        "type": "string",
+        "format": "date-time",
+        "publicName": "consumedAt"
+      }
+    }
+  },
+  "WaterLogId": {
+    "description": "Stable water-log identifier.",
+    "type": "string",
+    "format": "uuid"
+  },
+  "Weight": {
+    "type": "object",
+    "required": [
+      "value",
+      "unit"
+    ],
+    "rangeByUnit": {
+      "valueProperty": "value",
+      "unitProperty": "unit",
+      "ranges": {
+        "lb": {
+          "minimum": 2,
+          "maximum": 1500
+        },
+        "kg": {
+          "minimum": 1,
+          "maximum": 700
+        }
+      }
+    },
+    "properties": {
+      "value": {
+        "description": "Accepted range depends on unit: 2–1500 lb, 1–700 kg.",
+        "type": "number",
+        "minimum": 1,
+        "maximum": 1500,
         "publicName": "value"
       },
       "unit": {
         "ref": "WeightUnit",
         "publicName": "unit"
+      }
+    }
+  },
+  "WeightLog": {
+    "type": "object",
+    "required": [
+      "weight",
+      "created_at"
+    ],
+    "properties": {
+      "weight": {
+        "description": "The weight as logged, in the unit it was sent in.",
+        "allOf": [
+          {
+            "ref": "Weight"
+          }
+        ],
+        "publicName": "weight"
+      },
+      "created_at": {
+        "description": "When the weight was measured. UTC, with milliseconds.",
+        "type": "string",
+        "format": "date-time",
+        "publicName": "measuredAt"
       }
     }
   },
