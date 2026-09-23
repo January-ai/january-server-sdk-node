@@ -25,7 +25,7 @@ async function temporaryRoot(t) {
   return root;
 }
 
-async function service(t, { fail = {}, timeoutMint = false, hostile = false, drop = {} } = {}) {
+async function service(t, { fail = {}, timeoutMint = false, hostile = false, drop = {}, malformed = {} } = {}) {
   const requests = [];
   const logs = new Map();
   const waterLogs = new Map();
@@ -110,6 +110,8 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false, dro
       }
       // The write is recorded, then the connection drops before any reply.
       if (drop[operationId]) { req.socket.destroy(); return; }
+      // The write is recorded, but the success reply does not match what was sent.
+      if (malformed[operationId]) result = { ...result, weight: { value: 76, unit: 'kg' } };
       if (operationId === 'listWeightLogs') {
         assert.equal(url.searchParams.get('timezone'), 'UTC');
         result = { items: weightLogs.has(userId) ? [{ date: url.searchParams.get('start_date'), weight: { value: 75, unit: 'kg' } }] : [] };
@@ -236,7 +238,7 @@ test('a rejected water create needs no cleanup and names no user', async t => {
 });
 
 test('a weight create with no usable reply is reported with the user and time', async t => {
-  for (const scenario of [{ drop: { createWeightLog: true } }, { fail: { createWeightLog: 503 } }]) {
+  for (const scenario of [{ drop: { createWeightLog: true } }, { fail: { createWeightLog: 503 } }, { malformed: { createWeightLog: true } }]) {
     const result = await execute(t, scenario);
     assert.equal(result.report.results.find(r => r.operation === 'weightLogs.create').status, 'FAIL');
     assert.deepEqual(result.report.retained, []);

@@ -282,9 +282,14 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
         if (createOutcomeUnknown(error)) recordUnconfirmed('cleanup.weightLogs.unconfirmed', 'weight_log_create_unconfirmed');
         throw error;
       }
+      // A success reply the runner cannot confirm leaves the weight's state unknown.
+      if (!(result?.weight?.value === 75 && result.weight.unit === 'kg' && Number.isFinite(Date.parse(result.measuredAt)))) {
+        recordUnconfirmed('cleanup.weightLogs.unconfirmed', 'weight_log_create_unconfirmed');
+        throw new CheckError('created_weight_log_invalid');
+      }
       const row = { operation: 'weightLogs.create', status: 'RETAINED', code: 'no_delete_endpoint_run_user_only', durationMs: 0 };
       retained.push(row); output(row);
-      requireCheck(result.weight?.value === 75 && result.weight.unit === 'kg' && Number.isFinite(Date.parse(result.measuredAt)), 'created_weight_log_invalid'); return result;
+      return result;
     });
     await step('weightLogs.list', async options => {
       const result = await user.weightLogs.list({ startDate: day, endDate: day, timezone: 'UTC' }, options);
