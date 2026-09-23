@@ -813,7 +813,7 @@ export const operations: Record<string, Operation> = {
           },
           "publicName": "foods"
         },
-        "eaten_at": {
+        "created_at": {
           "description": "When the meal was eaten — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now.",
           "type": "string",
           "format": "date-time",
@@ -1112,7 +1112,7 @@ export const operations: Record<string, Operation> = {
           },
           "publicName": "foods"
         },
-        "eaten_at": {
+        "created_at": {
           "description": "When the meal was eaten — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omit to leave it unchanged.",
           "type": "string",
           "format": "date-time",
@@ -1222,7 +1222,7 @@ export const operations: Record<string, Operation> = {
           ],
           "publicName": "amount"
         },
-        "consumed_at": {
+        "created_at": {
           "description": "When the water was consumed — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. Its day is the one the daily cap counts it against.",
           "type": "string",
           "format": "date-time",
@@ -1422,7 +1422,7 @@ export const operations: Record<string, Operation> = {
           ],
           "publicName": "weight"
         },
-        "measured_at": {
+        "created_at": {
           "description": "When the weight was measured — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now.",
           "type": "string",
           "format": "date-time",

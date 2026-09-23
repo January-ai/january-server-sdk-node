@@ -457,7 +457,7 @@ export const schemas: Record<string, Schema> = {
         },
         "publicName": "foods"
       },
-      "eaten_at": {
+      "created_at": {
         "description": "When the meal was eaten — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now.",
         "type": "string",
         "format": "date-time",
@@ -485,7 +485,7 @@ export const schemas: Record<string, Schema> = {
         ],
         "publicName": "amount"
       },
-      "consumed_at": {
+      "created_at": {
         "description": "When the water was consumed — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now. Its day is the one the daily cap counts it against.",
         "type": "string",
         "format": "date-time",
@@ -522,7 +522,7 @@ export const schemas: Record<string, Schema> = {
         ],
         "publicName": "weight"
       },
-      "measured_at": {
+      "created_at": {
         "description": "When the weight was measured — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omitted = now.",
         "type": "string",
         "format": "date-time",
@@ -632,7 +632,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "date"
       },
       "weight": {
-        "description": "The weight with the latest `measured_at` on this day — later measurements replace earlier ones — in the unit it was logged in.",
+        "description": "The weight with the latest `created_at` on this day — later measurements replace earlier ones — in the unit it was logged in.",
         "allOf": [
           {
             "ref": "Weight"
@@ -792,7 +792,7 @@ export const schemas: Record<string, Schema> = {
     "required": [
       "id",
       "foods",
-      "eaten_at",
+      "created_at",
       "name"
     ],
     "properties": {
@@ -809,7 +809,7 @@ export const schemas: Record<string, Schema> = {
         },
         "publicName": "foods"
       },
-      "eaten_at": {
+      "created_at": {
         "description": "When the meal was eaten. UTC, with milliseconds.",
         "type": "string",
         "format": "date-time",
@@ -2169,7 +2169,7 @@ export const schemas: Record<string, Schema> = {
         },
         "publicName": "foods"
       },
-      "eaten_at": {
+      "created_at": {
         "description": "When the meal was eaten — any ISO-8601 offset; stored and returned in UTC with milliseconds. Omit to leave it unchanged.",
         "type": "string",
         "format": "date-time",
@@ -2229,16 +2229,16 @@ export const schemas: Record<string, Schema> = {
           "maximum": 24000
         },
         "cup": {
-          "minimum": 0.125,
+          "minimum": 0.1,
           "maximum": 101.4
         }
       }
     },
     "properties": {
       "value": {
-        "description": "Accepted range depends on unit: 1–811.5 fl_oz, 0.125–101.4 cup, 30–24000 ml.",
+        "description": "Accepted range depends on unit: 1–811.5 fl_oz, 30–24000 ml, 0.1–101.4 cup.",
         "type": "number",
-        "minimum": 0.125,
+        "minimum": 0.1,
         "maximum": 24000,
         "publicName": "value"
       },
@@ -2253,7 +2253,7 @@ export const schemas: Record<string, Schema> = {
     "required": [
       "id",
       "amount",
-      "consumed_at"
+      "created_at"
     ],
     "properties": {
       "id": {
@@ -2270,7 +2270,7 @@ export const schemas: Record<string, Schema> = {
         ],
         "publicName": "amount"
       },
-      "consumed_at": {
+      "created_at": {
         "description": "When the water was consumed. UTC, with milliseconds.",
         "type": "string",
         "format": "date-time",
@@ -2321,7 +2321,7 @@ export const schemas: Record<string, Schema> = {
     "type": "object",
     "required": [
       "weight",
-      "measured_at"
+      "created_at"
     ],
     "properties": {
       "weight": {
@@ -2333,7 +2333,7 @@ export const schemas: Record<string, Schema> = {
         ],
         "publicName": "weight"
       },
-      "measured_at": {
+      "created_at": {
         "description": "When the weight was measured. UTC, with milliseconds.",
         "type": "string",
         "format": "date-time",

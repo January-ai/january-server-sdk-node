@@ -172,7 +172,7 @@ export type DailyWaterTotal = {
 export type DailyWeight = {
   /** Local calendar date in the request’s `timezone`. */
   "date": string;
-  /** The weight with the latest `measured_at` on this day — later measurements replace earlier ones — in the unit it was logged in. */
+  /** The weight with the latest `created_at` on this day — later measurements replace earlier ones — in the unit it was logged in. */
   "weight": (Weight);
 };
 
@@ -608,7 +608,7 @@ export const VolumeUnit = {"flOz":"fl_oz","ml":"ml","cup":"cup"} as const;
 export type VolumeUnit = "fl_oz" | "ml" | "cup" | (string & {});
 
 export type WaterAmount = {
-  /** Accepted range depends on unit: 1–811.5 fl_oz, 0.125–101.4 cup, 30–24000 ml. */
+  /** Accepted range depends on unit: 1–811.5 fl_oz, 30–24000 ml, 0.1–101.4 cup. */
   "value": number;
   "unit": VolumeUnit;
 };
