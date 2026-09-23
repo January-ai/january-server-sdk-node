@@ -33,10 +33,15 @@ corrections. TypeScript code written against 0.1.0 may need these updates:
 
 ### Changed
 
+- Food, water and weight logs send and read their time as `created_at`, the name
+  the API now uses in requests and replies in place of `eaten_at`, `consumed_at`
+  and `measured_at`. The public fields keep their names (`eatenAt`, `consumedAt`
+  and `measuredAt`), so no code changes are needed. 0.1.0 still sends and expects
+  `eaten_at` for food logs.
 - Photo analysis uses the reasoning-based analyzer when `reasoning` is omitted,
   as the API now defaults to it. Pass `reasoning: { effort: 'none' }` for the
   standard analyzer. The SDK sends `reasoning` only when you set it.
-- A water amount must be within its unit's range (1–811.5 `fl_oz`, 0.125–101.4
+- A water amount must be within its unit's range (1–811.5 `fl_oz`, 0.1–101.4
   `cup`, 30–24000 `ml`), a weight log within 10–1000 `lb` or 4.5–453.6 `kg`, a
   glucose profile's weight within 2–1500 `lb` or 1–700 `kg` and its height within
   20–108 `in` or 50–275 `cm`, and a food or serving quantity must be greater than
