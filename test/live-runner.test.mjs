@@ -111,9 +111,11 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false, dro
       // The write is recorded, then the connection drops before any reply.
       if (drop[operationId]) { req.socket.destroy(); return; }
       // The write is recorded, but the success reply does not match what was sent.
-      if (malformed[operationId]) result = { ...result, weight: { value: 76, unit: 'kg' } };
+      if (malformed[operationId] && operationId === 'createWeightLog') result = { ...result, weight: { value: 76, unit: 'kg' } };
+      if (malformed[operationId] && operationId === 'createWaterLog') result = { ...result, amount: { value: 9, unit: 'fl_oz' } };
       // The write is recorded, but the reply names a different measurement time.
-      if (shifted[operationId]) result = { ...result, measured_at: new Date(Date.parse(result.measured_at) + 60_000).toISOString() };
+      if (shifted[operationId] && operationId === 'createWeightLog') result = { ...result, measured_at: new Date(Date.parse(result.measured_at) + 60_000).toISOString() };
+      if (shifted[operationId] && operationId === 'createWaterLog') result = { ...result, consumed_at: new Date(Date.parse(result.consumed_at) + 60_000).toISOString() };
       if (operationId === 'listWeightLogs') {
         assert.equal(url.searchParams.get('timezone'), 'UTC');
         result = { items: weightLogs.has(userId) ? [{ date: url.searchParams.get('start_date'), weight: { value: 75, unit: 'kg' } }] : [] };
@@ -228,6 +230,15 @@ test('a water create with no usable reply fails the run and names the user and t
     assert.equal(result.report.results.find(r => r.operation === 'waterLogs.create').status, 'FAIL');
     assert.equal(result.report.results.find(r => r.operation === 'waterLogs.delete').status, 'BLOCKED');
     assert.equal(result.mock.requests.filter(r => r.operationId === 'createWaterLog').length, 1);
+    assertUnconfirmed(result, 'cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
+  }
+});
+
+test('a water create whose reply does not echo the request is unconfirmed and its ID is not deleted', async t => {
+  for (const scenario of [{ shifted: { createWaterLog: true } }, { malformed: { createWaterLog: true } }]) {
+    const result = await execute(t, scenario);
+    assert.equal(result.report.results.find(r => r.operation === 'waterLogs.create').status, 'FAIL');
+    assert.equal(result.mock.requests.filter(r => r.operationId === 'deleteWaterLog').length, 0);
     assertUnconfirmed(result, 'cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
   }
 });

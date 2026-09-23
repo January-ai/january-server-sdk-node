@@ -258,9 +258,14 @@ export async function runLive(config, { emit = line => console.log(line), fetchI
         if (createOutcomeUnknown(error)) recordUnconfirmed('cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
         throw error;
       }
-      if (typeof result.id === 'string' && result.id) createdWaterLogId = result.id;
-      else recordUnconfirmed('cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
-      requireCheck(createdWaterLogId && result.amount?.value === 8 && result.amount.unit === 'fl_oz' && Number.isFinite(Date.parse(result.consumedAt)), 'created_water_log_invalid'); return result;
+      // Delete only an ID whose reply echoes what was sent; any other success leaves
+      // the create unconfirmed, and an unverified ID is never deleted.
+      if (!(typeof result?.id === 'string' && result.id && result.amount?.value === 8 && result.amount.unit === 'fl_oz' && Date.parse(result.consumedAt) === Date.parse(timestamp))) {
+        recordUnconfirmed('cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
+        throw new CheckError('created_water_log_invalid');
+      }
+      createdWaterLogId = result.id;
+      return result;
     });
     await step('waterLogs.list', async options => {
       const result = await user.waterLogs.list({ startDate: day, endDate: day, timezone: 'UTC', unit: 'fl_oz' }, options);
