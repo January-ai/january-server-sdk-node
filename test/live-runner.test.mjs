@@ -25,7 +25,7 @@ async function temporaryRoot(t) {
   return root;
 }
 
-async function service(t, { fail = {}, timeoutMint = false, hostile = false } = {}) {
+async function service(t, { fail = {}, timeoutMint = false, hostile = false, drop = {} } = {}) {
   const requests = [];
   const logs = new Map();
   const waterLogs = new Map();
@@ -108,6 +108,8 @@ async function service(t, { fail = {}, timeoutMint = false, hostile = false } = 
         result = { weight: body.weight, measured_at: body.measured_at };
         weightLogs.set(userId, result);
       }
+      // The write is recorded, then the connection drops before any reply.
+      if (drop[operationId]) { req.socket.destroy(); return; }
       if (operationId === 'listWeightLogs') {
         assert.equal(url.searchParams.get('timezone'), 'UTC');
         result = { items: weightLogs.has(userId) ? [{ date: url.searchParams.get('start_date'), weight: { value: 75, unit: 'kg' } }] : [] };
@@ -152,8 +154,11 @@ async function execute(t, scenario = {}, overrides = {}) {
   for (const secret of [syntheticKey, syntheticToken, 'private-response-text']) {
     assert.ok(!saved.includes(secret)); assert.ok(!output.join('\n').includes(secret));
   }
-  assert.ok(!saved.includes('sdk-e2e-node-'));
-  assert.ok(output.every(line => /^[A-Za-z.]+ (PASS|FAIL|BLOCKED)( code=[A-Za-z0-9_.:/-]+)?( requestID=[A-Za-z0-9_.:/-]+)?$/.test(line)));
+  // The synthetic user is named only on writes whose cleanup could not be confirmed.
+  const named = result.report.cleanup.filter(row => row.endUserId);
+  assert.ok(named.every(row => row.status === 'FAIL' && /\.unconfirmed$/.test(row.operation)));
+  if (!named.length) assert.ok(!saved.includes('sdk-e2e-node-'));
+  assert.ok(output.every(line => /^[A-Za-z.]+ (PASS|FAIL|BLOCKED|RETAINED)( code=[A-Za-z0-9_.:/-]+)?( requestID=[A-Za-z0-9_.:/-]+)?( endUserId=sdk-e2e-node-[0-9a-f-]{36} at=[0-9TZ:.-]+)?$/.test(line)), output.join('\n'));
   return { ...result, mock, output };
 }
 
@@ -195,6 +200,48 @@ test('all26 live workflow passes against local HTTP; dynamic IDs, photo, token u
   assert.equal(result.mock.requests.filter(r => r.operationId === 'deleteWaterLog').length, 1);
   assert.equal(result.mock.logs.size, 0); assert.equal(result.mock.waterLogs.size, 0); assert.equal(result.mock.tokenUsers.size, 0);
   assert.equal(result.mock.weightLogs.size, 1, 'weight logs cannot be deleted through the API');
+  assert.deepEqual(result.report.retained, [{ operation: 'weightLogs.create', status: 'RETAINED', code: 'no_delete_endpoint_run_user_only', durationMs: 0 }]);
+  assert.ok(result.output.includes('weightLogs.create RETAINED code=no_delete_endpoint_run_user_only'));
+});
+
+function assertUnconfirmed(result, operation, code) {
+  const rows = result.report.cleanup.filter(row => row.operation === operation);
+  assert.equal(rows.length, 1, JSON.stringify(result.report.cleanup));
+  const [row] = rows;
+  const userId = result.mock.requests.find(r => r.headers['january-end-user-id'])?.headers['january-end-user-id'];
+  assert.equal(row.status, 'FAIL'); assert.equal(row.code, code);
+  assert.match(row.endUserId, /^sdk-e2e-node-[0-9a-f-]{36}$/);
+  assert.equal(row.endUserId, userId);
+  assert.ok(Math.abs(Date.now() - Date.parse(row.at)) < 60_000);
+  assert.ok(result.output.includes(`${operation} FAIL code=${code} endUserId=${row.endUserId} at=${row.at}`));
+  assert.equal(result.exitCode, 1); assert.equal(result.report.status, 'FAIL');
+}
+
+test('a water create with no usable reply fails the run and names the user and time', async t => {
+  // The list endpoint returns daily totals, so an unreturned water log ID cannot be recovered.
+  for (const scenario of [{ drop: { createWaterLog: true } }, { fail: { createWaterLog: 503 } }]) {
+    const result = await execute(t, scenario);
+    assert.equal(result.report.results.find(r => r.operation === 'waterLogs.create').status, 'FAIL');
+    assert.equal(result.report.results.find(r => r.operation === 'waterLogs.delete').status, 'BLOCKED');
+    assert.equal(result.mock.requests.filter(r => r.operationId === 'createWaterLog').length, 1);
+    assertUnconfirmed(result, 'cleanup.waterLogs.unconfirmed', 'water_log_cleanup_unconfirmed');
+  }
+});
+
+test('a rejected water create needs no cleanup and names no user', async t => {
+  const result = await execute(t, { fail: { createWaterLog: 400 } });
+  assert.equal(result.report.results.find(r => r.operation === 'waterLogs.create').status, 'FAIL');
+  assert.equal(result.report.cleanupCounts.failed, 0);
+  assert.ok(result.report.cleanup.every(row => !row.endUserId));
+});
+
+test('a weight create with no usable reply is reported with the user and time', async t => {
+  for (const scenario of [{ drop: { createWeightLog: true } }, { fail: { createWeightLog: 503 } }]) {
+    const result = await execute(t, scenario);
+    assert.equal(result.report.results.find(r => r.operation === 'weightLogs.create').status, 'FAIL');
+    assert.deepEqual(result.report.retained, []);
+    assertUnconfirmed(result, 'cleanup.weightLogs.unconfirmed', 'weight_log_create_unconfirmed');
+  }
 });
 
 test('independent operations continue and dependent operations are BLOCKED, never counted passed', async t => {
