@@ -224,3 +224,16 @@ test('a glucose profile height must be within the range of its unit', async () =
   }
   await assert.rejects(predict({ value: 200, unit: 'in' }), /request\.userProfile\.height\.value must be from 20 through 108 in/);
 });
+
+test('food and serving IDs must be 1-10 digits without a leading zero', async () => {
+  const { client, requests } = capture(byId.createFoodLog);
+  const log = (foodId, servingId) => client.forUser('user').foodLogs.create({ foods: [{ foodId, servingId, quantity: 1 }] });
+  for (const [foodId, servingId] of [['0123', '67943292'], ['84222716', '012'], ['12345678901', '67943292'], ['', '67943292'], ['84222716', '1a']]) {
+    await assert.rejects(log(foodId, servingId), JanuaryValidationError, `${foodId}/${servingId}`);
+  }
+  assert.equal(requests.length, 0);
+  await log('1234567890', '1');
+  assert.equal(requests.length, 1);
+  await assert.rejects(client.forUser('user').foods.get({ foodId: '0133892962' }), JanuaryValidationError);
+  assert.equal(requests.length, 1);
+});
