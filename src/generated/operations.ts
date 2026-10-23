@@ -501,6 +501,18 @@ export const operations: Record<string, Operation> = {
     "retryAmbiguous": true,
     "parameters": [
       {
+        "name": "query",
+        "publicName": "query",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "style": "form",
+        "explode": true
+      },
+      {
         "name": "limit",
         "publicName": "limit",
         "in": "query",
@@ -670,6 +682,13 @@ export const operations: Record<string, Operation> = {
             }
           ],
           "publicName": "reasoning"
+        },
+        "context": {
+          "description": "**Beta.** A note about the meal from the person or app that took the photo: details the image may not show, such as how it was cooked, oils and sauces, hidden ingredients, how many items, or the brand or restaurant. The analysis takes it into account alongside the photo.",
+          "type": "string",
+          "nullable": true,
+          "maxLength": 1000,
+          "publicName": "context"
         }
       }
     },

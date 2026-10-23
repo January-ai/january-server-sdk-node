@@ -145,7 +145,7 @@ export type CreateWeightLogBody = {
 
 export type CreditBalance = {
   "plan": CreditPlan;
-  /** First day of the current billing period (UTC), inclusive. */
+  /** First day of the current billing period (UTC), inclusive. In the month of a plan change that starts no new billing period (a move to Free, say), the day of the change, when the allowance restarted. */
   "periodStart": string;
   /** Last day of the current billing period (UTC), inclusive. */
   "periodEnd": string;
@@ -200,7 +200,7 @@ export type DietRestriction = "gluten" | "lactose" | "yeast" | "tree_nuts" | "pe
 export type ErrorResponse = {
   /** A developer-facing explanation of what went wrong and how to fix it. */
   "message": string;
-  /** A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.  Any request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `payload_too_large` (413), `rate_limited` (429), `request_limit_exceeded` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.  `conflict` (409) means the request conflicts with an existing resource, such as an Idempotency-Key reused with different files. Resolve the conflict before retrying.  `cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.  Client tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.  Four more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called an operation that documents the January-End-User-ID header without sending it), `date_range_too_large` (400 — a date range past the operation's documented maximum or lookback), `daily_water_limit_exceeded` (400 — a water log that would take the end user's total for its day past 24 L; not retryable), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).  `POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.  Retry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Three more the status code alone gets wrong. **Two 429s must never be retried**, because both reopen only when your billing period resets: `credit_limit_exceeded` (the credit allowance for the period) and `request_limit_exceeded` (the request allowance for the period). A client that backs off on every 429 will spin until then; neither sends `Retry-After`, and the message names the reset instant — `GET /v1.2/credits` returns it as the resets_at field. `rate_limited` is the 429 that *is* worth retrying: a per-endpoint limit, or the rolling 24-hour burst guard over the request allowance, so its window is at most a day. And `token_expired` is refreshed, not retried — mint a new token, then retry once.  New codes may be added over time; treat an unknown code according to its HTTP status class. */
+  /** A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.  Any request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `payload_too_large` (413), `rate_limited` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.  `conflict` (409) means the request conflicts with an existing resource, such as an Idempotency-Key reused with different files, or a stored food log that references a food or serving that is no longer available. Resolve the conflict before retrying.  `cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.  Client tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.  Four more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called an operation that documents the January-End-User-ID header without sending it), `date_range_too_large` (400 — a date range past the operation's documented maximum or lookback), `daily_water_limit_exceeded` (400 — a water log that would take the end user's total for its day past 24 L; not retryable), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).  `POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.  Retry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. `credit_limit_exceeded` is the 429 that must not be retried: the credit allowance returns when the billing period resets. It sends no `Retry-After`; `GET /v1.2/credits` reports resets_at. `rate_limited` means a rolling abuse window was reached and is worth retrying with backoff. `Retry-After` is sent when that window's TTL is known. `token_expired` is refreshed, not retried — mint a new token, then retry once.  New codes may be added over time; treat an unknown code according to its HTTP status class. */
   "code": string;
 };
 
@@ -342,7 +342,7 @@ export type FoodSuggestion = {
 };
 
 export type GetRestaurantMenuItemsResponse = {
-  /** The menu items, by name. Empty when the restaurant has no menu on record. */
+  /** The menu items, by name. Empty when the restaurant has no menu on record or nothing on it matches `query`. */
   "items": Array<RestaurantMenuItem>;
 };
 
@@ -376,7 +376,7 @@ export type GlucosePredictionProfile = {
   "height": Height;
   "weight": Weight;
   "activityLevel"?: ActivityLevel;
-  /** Omit it (or send []) if none apply. Type 1 diabetes is not supported by the prediction model. */
+  /** Send [] (or omit it) when none of these apply; the prediction is then for a person without these conditions. Type 1 diabetes is not supported by the prediction model. */
   "healthConditions"?: Array<MedicalCondition>;
 };
 
@@ -416,10 +416,21 @@ export type LoggedFood = {
   "glycemicLoad": (number) | null;
   /** Scaled to the consumed quantity. */
   "nutrients": (NutritionFacts);
-  /** Number of selected servings consumed. Consumed amount = food.quantity × food.serving.quantity, in food.serving.unit (4 × 0.5 cup = 2 cups). Nutrients are already scaled to this portion. Null when unavailable. */
+  /** Number of selected servings consumed. Consumed amount = food.quantity × food.serving.quantity, in food.serving.unit (4 × 0.5 cup = 2 cups), when food.serving.quantity is known. Nutrients are already scaled to this portion. Null when unavailable. */
   "quantity": (number) | null;
   /** The serving definition the quantity refers to. */
-  "serving": (ServingSummary);
+  "serving": (LoggedServing);
+};
+
+export type LoggedServing = {
+  /** Catalog serving id. Pass it back as serving_id when logging this food. */
+  "id": string;
+  /** Null only when the producer sent a serving with no unit. */
+  "unit": (string) | null;
+  /** Weight in grams of this serving definition. For food analysis and food logs this is one catalog serving, not the consumed portion: consumed grams = food.quantity × food.serving.weight_grams. Null when unknown. */
+  "weightGrams": (number) | null;
+  /** Positive amount of unit represented by this catalog serving: consumed amount = food.quantity × food.serving.quantity (4 × 0.5 cup = 2 cups). Null when the catalog has no usable size for this serving; the consumed amount is then unknown, though nutrients are still scaled to food.quantity. */
+  "quantity": (number) | null;
 };
 
 export const MedicalCondition = {"type2Diabetes":"type_2_diabetes","prediabetes":"prediabetes"} as const;
@@ -534,6 +545,8 @@ export type ScanFoodPhotoBody = {
   "image": string;
   /** Controls analysis effort. Omit it or set `effort` to `xhigh` to use the reasoning-based analyzer; `none` uses the standard analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost. */
   "reasoning"?: (AnalysisReasoning);
+  /** **Beta.** A note about the meal from the person or app that took the photo: details the image may not show, such as how it was cooked, oils and sauces, hidden ingredients, how many items, or the brand or restaurant. The analysis takes it into account alongside the photo. */
+  "context"?: (string) | null;
 };
 
 export type SearchFoodsByNaturalLanguageBody = {
@@ -696,6 +709,7 @@ export type SearchRestaurantsRequest = {
 } & { signal?: AbortSignal };
 
 export type GetRestaurantMenuItemsRequest = {
+  "query"?: string;
   "limit"?: number;
   "offset"?: number;
   "restaurantId": string;
@@ -714,6 +728,8 @@ export type ScanFoodPhotoRequest = {
   "image": string;
   /** Controls analysis effort. Omit it or set `effort` to `xhigh` to use the reasoning-based analyzer; `none` uses the standard analyzer. Both modes return the same FoodAnalysisResult shape and use the same rate-limit bucket and credit cost. */
   "reasoning"?: (AnalysisReasoning);
+  /** **Beta.** A note about the meal from the person or app that took the photo: details the image may not show, such as how it was cooked, oils and sauces, hidden ingredients, how many items, or the brand or restaurant. The analysis takes it into account alongside the photo. */
+  "context"?: (string) | null;
 } & { signal?: AbortSignal };
 
 export type SearchFoodsByNaturalLanguageRequest = {

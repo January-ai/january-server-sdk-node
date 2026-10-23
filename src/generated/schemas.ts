@@ -547,7 +547,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "plan"
       },
       "period_start": {
-        "description": "First day of the current billing period (UTC), inclusive.",
+        "description": "First day of the current billing period (UTC), inclusive. In the month of a plan change that starts no new billing period (a move to Free, say), the day of the change, when the allowance restarted.",
         "type": "string",
         "format": "date",
         "publicName": "periodStart"
@@ -750,7 +750,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "message"
       },
       "code": {
-        "description": "A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.\n\nAny request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `payload_too_large` (413), `rate_limited` (429), `request_limit_exceeded` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.\n\n`conflict` (409) means the request conflicts with an existing resource, such as an Idempotency-Key reused with different files. Resolve the conflict before retrying.\n\n`cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.\n\nClient tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.\n\nFour more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called an operation that documents the January-End-User-ID header without sending it), `date_range_too_large` (400 — a date range past the operation's documented maximum or lookback), `daily_water_limit_exceeded` (400 — a water log that would take the end user's total for its day past 24 L; not retryable), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).\n\n`POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.\n\nRetry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. Three more the status code alone gets wrong. **Two 429s must never be retried**, because both reopen only when your billing period resets: `credit_limit_exceeded` (the credit allowance for the period) and `request_limit_exceeded` (the request allowance for the period). A client that backs off on every 429 will spin until then; neither sends `Retry-After`, and the message names the reset instant — `GET /v1.2/credits` returns it as the resets_at field. `rate_limited` is the 429 that *is* worth retrying: a per-endpoint limit, or the rolling 24-hour burst guard over the request allowance, so its window is at most a day. And `token_expired` is refreshed, not retried — mint a new token, then retry once.\n\nNew codes may be added over time; treat an unknown code according to its HTTP status class.",
+        "description": "A stable machine-readable identifier for the class of failure — build retry logic on this, never on message wording.\n\nAny request, each with the status it usually accompanies: `invalid_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `payload_too_large` (413), `rate_limited` (429), `credit_limit_exceeded` (429), `internal_error` (500), `not_implemented` (501), `upstream_error` (502), `service_unavailable` (503), `upstream_timeout` (504). Those pairings are the common case, not a guarantee: a status we do not map falls back to `invalid_request` below 500 and `internal_error` at or above it, so an internal service answering 422 reaches you with that status and `code: invalid_request`. Branch on the code first and treat the status as the fallback, exactly as for a code you do not recognise.\n\n`conflict` (409) means the request conflicts with an existing resource, such as an Idempotency-Key reused with different files, or a stored food log that references a food or serving that is no longer available. Resolve the conflict before retrying.\n\n`cancelled` (499) means the client disconnected before completion. The closed connection may prevent delivery of the error body.\n\nClient tokens add six an API key never produces: `token_expired`, `token_invalid`, `token_revoked` (401), and `client_token_not_allowed`, `scope_insufficient`, `end_user_id_mismatch` (403). Each response documents its own.\n\nFour more are specific to individual endpoints: `end_user_id_required` (400 — an sk- key called an operation that documents the January-End-User-ID header without sending it), `date_range_too_large` (400 — a date range past the operation's documented maximum or lookback), `daily_water_limit_exceeded` (400 — a water log that would take the end user's total for its day past 24 L; not retryable), and `client_token_revocation_incomplete` (503 — a revocation call that only stopped part of its batch; the same request is safe to repeat).\n\n`POST /v1.2/food-analysis/image` adds four 400s about the image itself: `image_unreachable` (the URL could not be fetched), `image_corrupt` (the file could not be decoded), `image_format_unsupported` and `image_invalid_base64`. Each is fixed by the caller; the same image fails the same way again.\n\nRetry only `rate_limited`, `internal_error`, `upstream_error`, `service_unavailable`, `upstream_timeout` and `client_token_revocation_incomplete`, with backoff — `not_implemented` is permanent until the feature ships, so its 5xx status is not a reason to retry it. `credit_limit_exceeded` is the 429 that must not be retried: the credit allowance returns when the billing period resets. It sends no `Retry-After`; `GET /v1.2/credits` reports resets_at. `rate_limited` means a rolling abuse window was reached and is worth retrying with backoff. `Retry-After` is sent when that window's TTL is known. `token_expired` is refreshed, not retried — mint a new token, then retry once.\n\nNew codes may be added over time; treat an unknown code according to its HTTP status class.",
         "type": "string",
         "publicName": "code"
       }
@@ -1272,7 +1272,7 @@ export const schemas: Record<string, Schema> = {
     ],
     "properties": {
       "items": {
-        "description": "The menu items, by name. Empty when the restaurant has no menu on record.",
+        "description": "The menu items, by name. Empty when the restaurant has no menu on record or nothing on it matches `query`.",
         "type": "array",
         "items": {
           "ref": "RestaurantMenuItem"
@@ -1389,7 +1389,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "activityLevel"
       },
       "health_conditions": {
-        "description": "Omit it (or send []) if none apply. Type 1 diabetes is not supported by the prediction model.",
+        "description": "Send [] (or omit it) when none of these apply; the prediction is then for a person without these conditions. Type 1 diabetes is not supported by the prediction model.",
         "type": "array",
         "maxItems": 2,
         "items": {
@@ -1545,7 +1545,7 @@ export const schemas: Record<string, Schema> = {
         "publicName": "nutrients"
       },
       "quantity": {
-        "description": "Number of selected servings consumed. Consumed amount = food.quantity × food.serving.quantity, in food.serving.unit (4 × 0.5 cup = 2 cups). Nutrients are already scaled to this portion. Null when unavailable.",
+        "description": "Number of selected servings consumed. Consumed amount = food.quantity × food.serving.quantity, in food.serving.unit (4 × 0.5 cup = 2 cups), when food.serving.quantity is known. Nutrients are already scaled to this portion. Null when unavailable.",
         "type": "number",
         "nullable": true,
         "publicName": "quantity"
@@ -1554,10 +1554,51 @@ export const schemas: Record<string, Schema> = {
         "description": "The serving definition the quantity refers to.",
         "allOf": [
           {
-            "ref": "ServingSummary"
+            "ref": "LoggedServing"
           }
         ],
         "publicName": "serving"
+      }
+    }
+  },
+  "LoggedServing": {
+    "type": "object",
+    "required": [
+      "id",
+      "unit",
+      "weight_grams",
+      "quantity"
+    ],
+    "properties": {
+      "id": {
+        "description": "Catalog serving id. Pass it back as serving_id when logging this food.",
+        "type": "string",
+        "pattern": "^[1-9]\\d{0,9}$",
+        "publicName": "id"
+      },
+      "unit": {
+        "description": "Null only when the producer sent a serving with no unit.",
+        "type": "string",
+        "nullable": true,
+        "minLength": 1,
+        "maxLength": 64,
+        "publicName": "unit"
+      },
+      "weight_grams": {
+        "description": "Weight in grams of this serving definition. For food analysis and food logs this is one catalog serving, not the consumed portion: consumed grams = food.quantity × food.serving.weight_grams. Null when unknown.",
+        "type": "number",
+        "nullable": true,
+        "minimum": 0,
+        "publicName": "weightGrams"
+      },
+      "quantity": {
+        "description": "Positive amount of unit represented by this catalog serving: consumed amount = food.quantity × food.serving.quantity (4 × 0.5 cup = 2 cups). Null when the catalog has no usable size for this serving; the consumed amount is then unknown, though nutrients are still scaled to food.quantity.",
+        "type": "number",
+        "nullable": true,
+        "minimum": 0,
+        "maximum": 10000,
+        "exclusiveMinimum": true,
+        "publicName": "quantity"
       }
     }
   },
@@ -1969,6 +2010,13 @@ export const schemas: Record<string, Schema> = {
           }
         ],
         "publicName": "reasoning"
+      },
+      "context": {
+        "description": "**Beta.** A note about the meal from the person or app that took the photo: details the image may not show, such as how it was cooked, oils and sauces, hidden ingredients, how many items, or the brand or restaurant. The analysis takes it into account alongside the photo.",
+        "type": "string",
+        "nullable": true,
+        "maxLength": 1000,
+        "publicName": "context"
       }
     }
   },
